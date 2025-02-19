@@ -1,0 +1,4 @@
+SOURCE += laserHeatSource/laserHeatSource.C
+SOURCE += LaserBeamShapingFoam.C
+
+EXE = $(FOAM_USER_APPBIN)/LaserBeamShapingFoam
