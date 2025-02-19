@@ -178,10 +178,12 @@ void laserHeatSource::updateDeposition
     const scalar HS_lg(readScalar(lookup("HS_lg")));
     const scalar HS_Q(readScalar(lookup("HS_Q")));
     const vector V_incident(lookup("V_incident"));
-    const vector Gauss_core(lookup("V_incident"));
-    const vector Gauss_ring(lookup("V_incident"));
+    const vector Gauss_core(lookup("Gauss_core"));
+    
+    const vector Gauss_ring(lookup("Gauss_ring"));
     const scalar wavelength(readScalar(lookup("wavelength")));
     const scalar e_num_density(readScalar(lookup("e_num_density")));
+    koho
     // elec_resistivity is temperature dependent - will include this in future versions
     const scalar elec_resistivity(readScalar(lookup("elec_resistivity")));
 

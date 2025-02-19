@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "LaserBeamShapingFoam.C": "cpp",
+        "incompressibleInterPhaseTransportModel.C": "cpp",
+        "laserHeatSource.C": "cpp"
+    }
+}
