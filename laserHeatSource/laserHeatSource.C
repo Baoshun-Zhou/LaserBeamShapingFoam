@@ -376,7 +376,8 @@ namespace Foam
                 pointslistGlobal1[i].z());
 
             // Cross product to find distance to beam central axis
-            const scalar dist = mag(((x0 - x1) ^ (x0 - x2))) / mag(x2 - x1);
+            const scalar dist_radius = Foam::sqrt(Foam::pow(pointslistGlobal1[i].x() - bg_effective.value(), 2.0) +
+                                                  Foam::pow(pointslistGlobal1[i].z() - (lg_effective.value() + (v_arc.value() * time.value())), 2.0));
 
             // Global index to track the order of the ray direction-changes
             // This is only used for post-processing to write VTKs of the beams
@@ -390,11 +391,18 @@ namespace Foam
             //              *Foam::exp(-3.0*(Foam::pow(((pointslistGlobal1[i].x()-b_g.value())/(beam_radius)),2.0)+
             //         Foam::pow((pointslistGlobal1[i].z()-(v_arc.value()*time.value())-lg.value())/(beam_radius),2.0)));
 
-            scalar Q1 = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / (Foam::pow(a_cond.value(), 2.0) * pi.value())) *
-                        Foam::exp(-Radius_Flavour * ((Foam::pow(dist, 2.0)) / (Foam::pow(a_cond.value(), 2.0))));
-            scalar Q2 = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / (Foam::pow(a_cond.value(), 2.0) * pi.value())) *
-                        Foam::exp(-Radius_Flavour * ((Foam::pow(dist, 2.0)) / (Foam::pow(a_cond.value(), 2.0))));
-            scalar Q = Q1 + Q2;
+            scalar Q1 = Foam::exp(-(Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
+            scalar Q2 = Foam::exp(-(Foam::pow((dist_radius - Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
+            scalar Q3 = Foam::exp(-(Foam::pow((dist_radius + Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
+            //scalar Q;
+            //if (pointslistGlobal1[i].x() <= 0)
+            //{
+            scalar Q = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / (Foam::pow(a_cond.value(), 2.0) * pi.value())) * (Gauss_core[0] * Q1 + Gauss_ring[0] * Q2);
+            //}
+            //else
+            //{
+            //    Q = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / (Foam::pow(a_cond.value(), 2.0) * pi.value())) * (Gauss_core[0] * Q1 + Gauss_ring[0] * Q3);
+            //}
 
             // ID of the processor that contains the beam tip
             label tipProcID = -1;
