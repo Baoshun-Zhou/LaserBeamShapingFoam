@@ -2,6 +2,7 @@
     "files.associations": {
         "LaserBeamShapingFoam.C": "cpp",
         "incompressibleInterPhaseTransportModel.C": "cpp",
-        "laserHeatSource.C": "cpp"
+        "laserHeatSource.C": "cpp",
+        "VoFTurbulenceDamping.C": "cpp"
     }
 }

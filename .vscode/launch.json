@@ -1,0 +1,33 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "g++ build and debug active file",
+      "type": "cppdbg",
+      "request": "launch",
+      //"program": "/home/mostafa/Desktop/tools/ow3dseakeeping/verify/tests/test13/Test13",
+      "program": "/home/baoshunzhou/OpenFOAM/baoshunzhou-10/platforms/linux64GccDPInt32Opt/bin/LaserBeamShapingFoam",
+      //"args": ["-p=1e-8"],
+      //"args": ["-opt=/home/mostafa/Desktop/Project/OW3DSeakeeping/input.opt"],
+      "stopAtEntry": false,      
+      "cwd": "/home/baoshunzhou/Desktop/PostDoc/Projects/GlobalAM/Cases/Test_Ringshape",
+      //"cwd": "/home/mostafa/Desktop/tools/ow3dseakeeping/verify/tests/test13",
+      //"cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "miDebuggerPath": "/usr/bin/gdb",
+      "preLaunchTask": "BuildOW3D"
+    }
+  ]
+}
