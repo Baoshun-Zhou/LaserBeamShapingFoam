@@ -254,7 +254,7 @@ namespace Foam
                     Foam::pow(x_coord - bg_effective.value(), 2.0) + Foam::pow(
                                                                          z_coord - (lg_effective.value() + (v_arc.value() * time.value())),
                                                                          2.0) <=
-                    Foam::pow(1.5 * beam_radius, 2.0)) &&
+                    Foam::pow(3 * beam_radius, 2.0)) && //Foam::pow( 1.5 * beam_radius, 2.0)) &&
                 (laserBoundary_[celli] > SMALL))
             {
                 // rayNumber_[celli] = 1.0;
