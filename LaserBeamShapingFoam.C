@@ -29,6 +29,8 @@ Authors
     Philip Cardiff, UCD.
     Gowthaman Parivendhan, UCD.
     Joe Robson, UoM.
+    Baoshun Zhou, DTU (Ring-shaped laser profile).
+    
 
 Description
     Ray-Tracing heat source implementation with two phase incompressible VoF description of the metallic substrate and shielding gas phase.

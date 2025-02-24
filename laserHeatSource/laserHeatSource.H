@@ -31,6 +31,7 @@ Description
 Author
     Thomas Flint, The University of Manchester.
     Philip Cardiff, University College Dublin.
+    Baoshun Zhou, Technical Univeristy of Denmark (Ring-shaped laser profile).
 
 SourceFiles
     laserHeatSource.C
