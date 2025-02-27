@@ -254,7 +254,7 @@ namespace Foam
                     Foam::pow(x_coord - bg_effective.value(), 2.0) + Foam::pow(
                                                                          z_coord - (lg_effective.value() + (v_arc.value() * time.value())),
                                                                          2.0) <=
-                    Foam::pow(3 * beam_radius, 2.0)) && //Foam::pow( 1.5 * beam_radius, 2.0)) &&
+                    Foam::pow(3 * beam_radius, 2.0)) && // Foam::pow( 1.5 * beam_radius, 2.0)) &&
                 (laserBoundary_[celli] > SMALL))
             {
                 // rayNumber_[celli] = 1.0;
@@ -350,7 +350,16 @@ namespace Foam
             //              *Foam::exp(-3.0*(Foam::pow(((pointslistGlobal1[i].x()-b_g.value())/(beam_radius)),2.0)+
             //         Foam::pow((pointslistGlobal1[i].z()-(v_arc.value()*time.value())-lg.value())/(beam_radius),2.0)));
 
-            scalar Q1 = Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
+            scalar Q1;
+
+            if (Gauss_core[2] != 0)
+            {
+                Q1 = Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
+            }
+            else
+            {
+                Q1 = 0;
+            }
 
             scalar Q2;
 
