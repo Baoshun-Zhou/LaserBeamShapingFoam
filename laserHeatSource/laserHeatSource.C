@@ -181,6 +181,8 @@ namespace Foam
             lookupOrDefault<scalar>("Radius_Flavour", 2.0));
         const scalar omega(
             lookupOrDefault<scalar>("omega", 1.0));
+        const scalar Gamma_I(
+            lookupOrDefault<scalar>("Gamma_I", 1.0));
         const Switch useLocalSearch(
             lookupOrDefault<Switch>("useLocalSearch", true));
         const label maxLocalSearch(
@@ -354,7 +356,7 @@ namespace Foam
 
             if (Gauss_core[2] != 0)
             {
-                Q1 = Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
+                Q1 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
             }
             else
             {
@@ -365,7 +367,7 @@ namespace Foam
 
             if (Gauss_ring[2] != 0)
             {
-                Q2 = Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
+                Q2 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
             }
             else
             {
