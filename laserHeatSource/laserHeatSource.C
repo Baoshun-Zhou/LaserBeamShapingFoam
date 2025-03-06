@@ -22,6 +22,7 @@ License
 #include "constants.H"
 #include "findLocalCell.H"
 #include "SortableList.H"
+#include <cmath>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -179,10 +180,16 @@ namespace Foam
         const scalar dep_cutoff(lookupOrDefault<scalar>("dep_cutoff", 0.5));
         const scalar Radius_Flavour(
             lookupOrDefault<scalar>("Radius_Flavour", 2.0));
-        const scalar omega(
+        const double omega(
             lookupOrDefault<scalar>("omega", 1.0));
-        const scalar Gamma_I(
+        const double Gamma_I(
             lookupOrDefault<scalar>("Gamma_I", 1.0));
+        const double Period_QstartT(
+            lookupOrDefault<scalar>("Period_QstartT", 0.0));
+        const double Period_QendT(
+            lookupOrDefault<scalar>("Period_QendT", runTime.endTime().value()));
+        const double Period_T(
+            lookupOrDefault<scalar>("Period_T", runTime.endTime().value()));
         const Switch useLocalSearch(
             lookupOrDefault<Switch>("useLocalSearch", true));
         const label maxLocalSearch(
@@ -377,14 +384,21 @@ namespace Foam
             // ID of the processor that contains the beam tip
             scalar TempCoeff = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / pi.value());
             scalar Q;
-            if (Gauss_ring[1] != 0 && Gauss_ring[1] != 0)
+            if (std::fmod(time.value(), Period_T) < Period_QstartT || std::fmod(time.value(), Period_T) >= Period_QendT)
             {
-                Q = TempCoeff * (Gauss_core[0] / (Gauss_core[0] + Gauss_ring[0]) / (2 * Foam::pow(Gauss_core[2], 2.0)) * Q1 +
-                                 Gauss_ring[0] / (Gauss_core[0] + Gauss_ring[0]) / (4 * Foam::pow(2, 0.5) * omega * Gauss_ring[1] * Gauss_ring[2]) * Q2);
+                Q = 0;
             }
             else
             {
-                Q = TempCoeff * Q1 / (2 * Foam::pow(Gauss_core[2], 2.0));
+                if (Gauss_ring[1] != 0 && Gauss_ring[1] != 0)
+                {
+                    Q = TempCoeff * (Gauss_core[0] / (Gauss_core[0] + Gauss_ring[0]) / (2 * Foam::pow(Gauss_core[2], 2.0)) * Q1 +
+                                     Gauss_ring[0] / (Gauss_core[0] + Gauss_ring[0]) / (4 * Foam::pow(2, 0.5) * omega * Gauss_ring[1] * Gauss_ring[2]) * Q2);
+                }
+                else
+                {
+                    Q = TempCoeff * Q1 / (2 * Foam::pow(Gauss_core[2], 2.0));
+                }
             }
 
             label tipProcID = -1;
