@@ -23,16 +23,19 @@ forAll(mesh.C(), celli)
     {
         kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
         cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+        rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
     }
     else if(T[celli] > TSolidus[celli] && T[celli] <= TLiquidus[celli])
     {
         kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
         cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+        rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
     }
     else
     {
         kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
         cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+        rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
     }
 }
 
