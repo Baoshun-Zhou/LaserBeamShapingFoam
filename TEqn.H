@@ -30,7 +30,7 @@
         if (damperSwitch)
         {
         //     thermalDamper = 2.0*(rhoCp)/(rho1*cp1 + rho2*cp2);
-
+/*
         forAll( mesh.C(), celli)
 {
 
@@ -38,6 +38,27 @@ thermalDamper[celli]=2.0*rhoCp[celli]/((rho1.value()*polycp_m.value(T[celli]))+(
 
 
 }
+*/
+
+
+
+forAll(mesh.C(), celli)
+{
+    if (T[celli] <= TSolidus[celli])
+    {
+        thermalDamper[celli]=2.0*rhoCp[celli]/((rho1.value()*polycp_m_s.value(T[celli]))+(rho2.value()*polycp_g.value(T[celli])));
+    }
+    else if(T[celli] > TSolidus[celli] && T[celli] <= TLiquidus[celli])
+    {
+        thermalDamper[celli]=2.0*rhoCp[celli]/((rho1.value()*polycp_m_s_l.value(T[celli]))+(rho2.value()*polycp_g.value(T[celli])));
+    }
+    else
+    {
+       thermalDamper[celli]=2.0*rhoCp[celli]/((rho1.value()*polycp_m_l.value(T[celli]))+(rho2.value()*polycp_g.value(T[celli])));
+    }
+}
+
+
 
 
         }
