@@ -234,7 +234,7 @@ forAll( mesh.C(), celli)
         kappa[celli] = (alpha1[celli] * (polykappa_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
         cp[celli] = (alpha1[celli] * (polycp_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
     }
-    elseif(T[celli] > Tsolidus1.value() && T[celli] <= TLiquidus1.value())
+    else if(T[celli] > Tsolidus1.value() && T[celli] <= Tliquidus1.value())
         {
         kappa[celli] = (alpha1[celli] * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
         cp[celli] = (alpha1[celli] * (polycp_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
