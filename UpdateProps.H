@@ -17,16 +17,26 @@ TLiquidus[celli]=Tliquidus1.value();
 }
 }
 
-forAll( mesh.C(), celli)
+forAll(mesh.C(), celli)
 {
-kappa[celli]=(max(min(alpha1[celli],1.0),0.0)*(polykappa_m.value(T[celli])))+((1.0-max(min(alpha1[celli],1.0),0.0))*polykappa_g.value(T[celli]));
-cp[celli]=(max(min(alpha1[celli],1.0),0.0)*(polycp_m.value(T[celli])))+((1.0-max(min(alpha1[celli],1.0),0.0))*polycp_g.value(T[celli]));
+    if (T[celli] <= TSolidus[celli])
+    {
+        kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
+        cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+    }
+    elseif(T[celli] > TSolidus[celli] && T[celli] <= TLiquidus[celli])
+    {
+        kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
+        cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+    }
+    else
+    {
+        kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
+        cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+    }
 }
 
 kappa.correctBoundaryConditions();
-
-
-
 
 
 //update the cell size fields
@@ -60,15 +70,6 @@ forAll(CI, celli)
 laser.yDim().correctBoundaryConditions();
 // zDim.correctBoundaryConditions();
 //update the cell size fields
-
-
-
-
-
-
-
-
-
 
 // refineflag=fvc::average(alpha1);
 metalaverage = fvc::average(alpha1);
