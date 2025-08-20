@@ -70,8 +70,27 @@ volScalarField rho
 );
 rho.oldTime();
 
+Polynomial<8> polyrho_m_s(transportProperties_metal.lookup("poly_rho_s")); // Density for solid phase
+Polynomial<8> polyrho_m_s_l(transportProperties_metal.lookup("poly_rho_s_l")); // Density for mushy zone
+Polynomial<8> polyrho_m_l(transportProperties_metal.lookup("poly_rho_l")); // Density for liquid phase
+Polynomial<8> polyrho_g(transportProperties_gas.lookup("poly_rho"));// Density for gas phase
 
+forAll( mesh.C(), celli)
+{
 
+    if (T[celli] <= Tsolidus1.value())
+    {
+        rho[celli] = (alpha1[celli] * (polyrho_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
+    }
+    else if(T[celli] > Tsolidus1.value() && T[celli] <= Tliquidus1.value())
+        {
+        rho[celli] = (alpha1[celli] * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
+    }
+    else
+    {
+        rho[celli] = (alpha1[celli] * (polyrho_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
+    }
+}
 
 #include "readGravitationalAcceleration.H"
 #include "readhRef.H"
@@ -190,7 +209,6 @@ Polynomial<8> polycp_m_s(transportProperties_metal.lookup("poly_cp_s")); // Soli
 Polynomial<8> polycp_m_s_l(transportProperties_metal.lookup("poly_cp_s_l")); // Specific heat capacity for mushy zone
 Polynomial<8> polycp_m_l(transportProperties_metal.lookup("poly_cp_l")); // Liquid phase specific heat capacity
 Polynomial<8> polycp_g(transportProperties_gas.lookup("poly_cp"));
-
 
 
 volScalarField cp
