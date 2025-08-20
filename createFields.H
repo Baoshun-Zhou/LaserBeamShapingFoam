@@ -181,10 +181,14 @@ dimensionedScalar LatentHeatVap("LatentHeatVap",dimensionSet(0, 2, -2, 0, 0),pha
 dimensionedScalar R ("R", dimensionSet(1,2,-2,-1,-1,0,0),8.314);
 
 
-Polynomial<8> polykappa_m(transportProperties_metal.lookup("poly_kappa"));
+Polynomial<8> polykappa_m_s(transportProperties_metal.lookup("poly_kappa_s")); // Solid phase thermal conductivity
+Polynomial<8> polykappa_m_s_l(transportProperties_metal.lookup("poly_kappa_s_l")); // Thermal conductivity for mushy zone 
+Polynomial<8> polykappa_m_l(transportProperties_metal.lookup("poly_kappa_l")); // Liquid phase thermal conductivity
 Polynomial<8> polykappa_g(transportProperties_gas.lookup("poly_kappa"));
 
-Polynomial<8> polycp_m(transportProperties_metal.lookup("poly_cp"));
+Polynomial<8> polycp_m_s(transportProperties_metal.lookup("poly_cp_s")); // Solid phase specific heat capacity
+Polynomial<8> polycp_m_s_l(transportProperties_metal.lookup("poly_cp_s_l")); // Specific heat capacity for mushy zone
+Polynomial<8> polycp_m_l(transportProperties_metal.lookup("poly_cp_l")); // Liquid phase specific heat capacity
 Polynomial<8> polycp_g(transportProperties_gas.lookup("poly_cp"));
 
 
@@ -222,14 +226,25 @@ volScalarField kappa
 // kappa=alpha1*kappa1 + (1.0-alpha1)*kappa2;
 
 
-
 forAll( mesh.C(), celli)
 {
-kappa[celli]=(alpha1[celli]*(polykappa_m.value(T[celli])))+((1.0-alpha1[celli])*polykappa_g.value(T[celli]));
-cp[celli]=(alpha1[celli]*(polycp_m.value(T[celli])))+((1.0-alpha1[celli])*polycp_g.value(T[celli]));
 
+    if (T[celli] <= Tsolidus1.value())
+    {
+        kappa[celli] = (alpha1[celli] * (polykappa_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+    }
+    elseif(T[celli] > Tsolidus1.value() && T[celli] <= TLiquidus1.value())
+        {
+        kappa[celli] = (alpha1[celli] * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+    }
+    else
+    {
+        kappa[celli] = (alpha1[celli] * (polykappa_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+    }
 }
-
 
 
 
