@@ -55,7 +55,6 @@ autoPtr<twoPhaseChangeModel> phaseChangePtr
     twoPhaseChangeModel::New(mixture)
 );
 
-
 // Need to store rho for ddt(rho, U)
 volScalarField rho
 (
@@ -70,10 +69,71 @@ volScalarField rho
 );
 rho.oldTime();
 
+IOdictionary transportProperties_metal
+(
+    IOobject
+    (
+        "physicalProperties.metal",
+        runTime.constant(),
+        mesh,
+        IOobject::MUST_READ_IF_MODIFIED,
+        IOobject::NO_WRITE
+    )
+);
+
+IOdictionary transportProperties_gas
+(
+    IOobject
+    (
+        "physicalProperties.gas",
+        runTime.constant(),
+        mesh,
+        IOobject::MUST_READ_IF_MODIFIED,
+        IOobject::NO_WRITE
+    )
+);
+
+IOdictionary phaseProperties
+(
+    IOobject
+    (
+        "phaseProperties",
+        runTime.constant(),
+        mesh,
+        IOobject::MUST_READ_IF_MODIFIED,
+        IOobject::NO_WRITE
+    )
+);
+
+
+dimensionedScalar Tsolidus1("Tsolidus1",dimensionSet(0, 0, 0, 1, 0),transportProperties_metal.lookup("Tsolidus"));
+dimensionedScalar Tsolidus2("Tsolidus2",dimensionSet(0, 0, 0, 1, 0),transportProperties_gas.lookup("Tsolidus"));
+
+dimensionedScalar Tliquidus1("Tliquidus1",dimensionSet(0, 0, 0, 1, 0),transportProperties_metal.lookup("Tliquidus"));
+dimensionedScalar Tliquidus2("Tliquidus2",dimensionSet(0, 0, 0, 1, 0),transportProperties_gas.lookup("Tliquidus"));
+
+dimensionedScalar LatentHeat1("LatentHeat1",dimensionSet(0, 2, -2, 0, 0),transportProperties_metal.lookup("LatentHeat"));
+dimensionedScalar LatentHeat2("LatentHeat2",dimensionSet(0, 2, -2, 0, 0),transportProperties_gas.lookup("LatentHeat"));
+
+dimensionedScalar beta1("beta1",dimensionSet(0, 0, 0, -1, 0),transportProperties_metal.lookup("beta"));
+dimensionedScalar beta2("beta2",dimensionSet(0, 0, 0, -1, 0),transportProperties_gas.lookup("beta"));
+
+dimensionedScalar Marangoni_Constant("Marangoni_Constant",dimensionSet(1, 0, -2, -1, 0),phaseProperties.lookup("dsigmadT"));
+dimensionedScalar p0("p0",dimensionSet(1,-1,-2,0,0,0,0),phaseProperties.lookup("p0"));//atmospheric pressure
+dimensionedScalar Tvap("Tvap",dimensionSet(0, 0, 0, 1, 0),phaseProperties.lookup("Tvap"));
+dimensionedScalar Mm("Mm",dimensionSet(1, 0, 0, 0, -1),phaseProperties.lookup("Mm"));
+dimensionedScalar LatentHeatVap("LatentHeatVap",dimensionSet(0, 2, -2, 0, 0),phaseProperties.lookup("LatentHeatVap"));
+
+dimensionedScalar R ("R", dimensionSet(1,2,-2,-1,-1,0,0),8.314);
+
+
 Polynomial<8> polyrho_m_s(transportProperties_metal.lookup("poly_rho_s")); // Density for solid phase
 Polynomial<8> polyrho_m_s_l(transportProperties_metal.lookup("poly_rho_s_l")); // Density for mushy zone
 Polynomial<8> polyrho_m_l(transportProperties_metal.lookup("poly_rho_l")); // Density for liquid phase
 Polynomial<8> polyrho_g(transportProperties_gas.lookup("poly_rho"));// Density for gas phase
+
+volScalarField& alpha1(mixture.alpha1());
+mesh.schemes().setFluxRequired(alpha1.name());
 
 forAll( mesh.C(), celli)
 {
@@ -126,46 +186,10 @@ if (p_rgh.needReference())
 
 mesh.schemes().setFluxRequired(p_rgh.name());
 
-volScalarField& alpha1(mixture.alpha1());
-mesh.schemes().setFluxRequired(alpha1.name());
 
 
 
-IOdictionary transportProperties_metal
-(
-    IOobject
-    (
-        "physicalProperties.metal",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
 
-IOdictionary transportProperties_gas
-(
-    IOobject
-    (
-        "physicalProperties.gas",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
-
-IOdictionary phaseProperties
-(
-    IOobject
-    (
-        "phaseProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ_IF_MODIFIED,
-        IOobject::NO_WRITE
-    )
-);
 
 // dimensionedScalar cp1("cp1",dimensionSet(0, 2, -2, -1, 0),transportProperties_metal.lookup("cp"));
 // dimensionedScalar cp2("cp2",dimensionSet(0, 2, -2, -1, 0),transportProperties_gas.lookup("cp"));
@@ -179,25 +203,6 @@ IOdictionary phaseProperties
 // dimensionedScalar kappa1solid("kappa1solid",dimensionSet(1, 1, -3, -1, 0),transportProperties_metal.lookup("kappasolid"));
 // dimensionedScalar kappa2solid("kappa2solid",dimensionSet(1, 1, -3, -1, 0),transportProperties_gas.lookup("kappasolid"));
 
-dimensionedScalar Tsolidus1("Tsolidus1",dimensionSet(0, 0, 0, 1, 0),transportProperties_metal.lookup("Tsolidus"));
-dimensionedScalar Tsolidus2("Tsolidus2",dimensionSet(0, 0, 0, 1, 0),transportProperties_gas.lookup("Tsolidus"));
-
-dimensionedScalar Tliquidus1("Tliquidus1",dimensionSet(0, 0, 0, 1, 0),transportProperties_metal.lookup("Tliquidus"));
-dimensionedScalar Tliquidus2("Tliquidus2",dimensionSet(0, 0, 0, 1, 0),transportProperties_gas.lookup("Tliquidus"));
-
-dimensionedScalar LatentHeat1("LatentHeat1",dimensionSet(0, 2, -2, 0, 0),transportProperties_metal.lookup("LatentHeat"));
-dimensionedScalar LatentHeat2("LatentHeat2",dimensionSet(0, 2, -2, 0, 0),transportProperties_gas.lookup("LatentHeat"));
-
-dimensionedScalar beta1("beta1",dimensionSet(0, 0, 0, -1, 0),transportProperties_metal.lookup("beta"));
-dimensionedScalar beta2("beta2",dimensionSet(0, 0, 0, -1, 0),transportProperties_gas.lookup("beta"));
-
-dimensionedScalar Marangoni_Constant("Marangoni_Constant",dimensionSet(1, 0, -2, -1, 0),phaseProperties.lookup("dsigmadT"));
-dimensionedScalar p0("p0",dimensionSet(1,-1,-2,0,0,0,0),phaseProperties.lookup("p0"));//atmospheric pressure
-dimensionedScalar Tvap("Tvap",dimensionSet(0, 0, 0, 1, 0),phaseProperties.lookup("Tvap"));
-dimensionedScalar Mm("Mm",dimensionSet(1, 0, 0, 0, -1),phaseProperties.lookup("Mm"));
-dimensionedScalar LatentHeatVap("LatentHeatVap",dimensionSet(0, 2, -2, 0, 0),phaseProperties.lookup("LatentHeatVap"));
-
-dimensionedScalar R ("R", dimensionSet(1,2,-2,-1,-1,0,0),8.314);
 
 
 Polynomial<8> polykappa_m_s(transportProperties_metal.lookup("poly_kappa_s")); // Solid phase thermal conductivity
