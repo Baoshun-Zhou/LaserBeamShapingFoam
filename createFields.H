@@ -115,9 +115,6 @@ dimensionedScalar Tliquidus2("Tliquidus2",dimensionSet(0, 0, 0, 1, 0),transportP
 dimensionedScalar LatentHeat1("LatentHeat1",dimensionSet(0, 2, -2, 0, 0),transportProperties_metal.lookup("LatentHeat"));
 dimensionedScalar LatentHeat2("LatentHeat2",dimensionSet(0, 2, -2, 0, 0),transportProperties_gas.lookup("LatentHeat"));
 
-dimensionedScalar beta1("beta1",dimensionSet(0, 0, 0, -1, 0),transportProperties_metal.lookup("beta"));
-dimensionedScalar beta2("beta2",dimensionSet(0, 0, 0, -1, 0),transportProperties_gas.lookup("beta"));
-
 dimensionedScalar Marangoni_Constant("Marangoni_Constant",dimensionSet(1, 0, -2, -1, 0),phaseProperties.lookup("dsigmadT"));
 dimensionedScalar p0("p0",dimensionSet(1,-1,-2,0,0,0,0),phaseProperties.lookup("p0"));//atmospheric pressure
 dimensionedScalar Tvap("Tvap",dimensionSet(0, 0, 0, 1, 0),phaseProperties.lookup("Tvap"));
@@ -142,13 +139,13 @@ forAll( mesh.C(), celli)
     {
         rho[celli] = (alpha1[celli] * (polyrho_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
     }
-    else if(T[celli] > Tsolidus1.value() && T[celli] <= Tliquidus1.value())
-        {
-        rho[celli] = (alpha1[celli] * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
-    }
-    else
+    else if (T[celli] >= Tliquidus1.value())
     {
         rho[celli] = (alpha1[celli] * (polyrho_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
+    }
+    else
+        {
+        rho[celli] = (alpha1[celli] * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polyrho_g.value(T[celli]));
     }
 }
 
@@ -187,10 +184,6 @@ if (p_rgh.needReference())
 mesh.schemes().setFluxRequired(p_rgh.name());
 
 
-
-
-
-
 // dimensionedScalar cp1("cp1",dimensionSet(0, 2, -2, -1, 0),transportProperties_metal.lookup("cp"));
 // dimensionedScalar cp2("cp2",dimensionSet(0, 2, -2, -1, 0),transportProperties_gas.lookup("cp"));
 
@@ -203,6 +196,9 @@ mesh.schemes().setFluxRequired(p_rgh.name());
 // dimensionedScalar kappa1solid("kappa1solid",dimensionSet(1, 1, -3, -1, 0),transportProperties_metal.lookup("kappasolid"));
 // dimensionedScalar kappa2solid("kappa2solid",dimensionSet(1, 1, -3, -1, 0),transportProperties_gas.lookup("kappasolid"));
 
+// dimensionedScalar beta1("beta1",dimensionSet(0, 0, 0, -1, 0),transportProperties_metal.lookup("beta"));
+// dimensionedScalar beta2("beta2",dimensionSet(0, 0, 0, -1, 0),transportProperties_gas.lookup("beta"));
+
 
 
 Polynomial<8> polykappa_m_s(transportProperties_metal.lookup("poly_kappa_s")); // Solid phase thermal conductivity
@@ -214,6 +210,12 @@ Polynomial<8> polycp_m_s(transportProperties_metal.lookup("poly_cp_s")); // Soli
 Polynomial<8> polycp_m_s_l(transportProperties_metal.lookup("poly_cp_s_l")); // Specific heat capacity for mushy zone
 Polynomial<8> polycp_m_l(transportProperties_metal.lookup("poly_cp_l")); // Liquid phase specific heat capacity
 Polynomial<8> polycp_g(transportProperties_gas.lookup("poly_cp"));
+
+
+Polynomial<8> polybeta_m_s(transportProperties_metal.lookup("poly_beta_s")); // Solid phase thermal expansion coefficient
+Polynomial<8> polybeta_m_s_l(transportProperties_metal.lookup("poly_beta_s_l")); // Thermal expansion coefficient for mushy zone
+Polynomial<8> polybeta_m_l(transportProperties_metal.lookup("poly_beta_l")); // Liquid phase thermal expansion coefficient
+Polynomial<8> polybeta_g(transportProperties_gas.lookup("poly_beta"));  // Gas phase thermal expansion coefficient 
 
 
 volScalarField cp
@@ -247,27 +249,6 @@ volScalarField kappa
 );
 
 // kappa=alpha1*kappa1 + (1.0-alpha1)*kappa2;
-
-
-forAll( mesh.C(), celli)
-{
-
-    if (T[celli] <= Tsolidus1.value())
-    {
-        kappa[celli] = (alpha1[celli] * (polykappa_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
-        cp[celli] = (alpha1[celli] * (polycp_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
-    }
-    else if(T[celli] > Tsolidus1.value() && T[celli] <= Tliquidus1.value())
-        {
-        kappa[celli] = (alpha1[celli] * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
-        cp[celli] = (alpha1[celli] * (polycp_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
-    }
-    else
-    {
-        kappa[celli] = (alpha1[celli] * (polykappa_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
-        cp[celli] = (alpha1[celli] * (polycp_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
-    }
-}
 
 
 
@@ -550,7 +531,30 @@ volScalarField beta
     mesh,
     dimensionedScalar("beta",dimensionSet(0, 0, 0, -1, 0),0.0)
 );
-beta=alpha1*beta1 + (1.0-alpha1)*beta2;
+//beta=alpha1*beta1 + (1.0-alpha1)*beta2;
+
+forAll( mesh.C(), celli)
+{
+    if (T[celli] <= Tsolidus1.value())
+    {   
+        kappa[celli] = (alpha1[celli] * (polykappa_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+        beta[celli] = (alpha1[celli] * (polybeta_m_s.value(T[celli]))) + ((1.0 - alpha1[celli]) * polybeta_g.value(T[celli]));
+    }
+    else if (T[celli] >=Tliquidus1.value())
+    {
+        kappa[celli] = (alpha1[celli] * (polykappa_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+        beta[celli] = (alpha1[celli] * (polybeta_m_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polybeta_g.value(T[celli]));
+    }
+    else {
+        kappa[celli] = (alpha1[celli] * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polykappa_g.value(T[celli]));
+        cp[celli] = (alpha1[celli] * (polycp_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polycp_g.value(T[celli]));
+        beta[celli] = (alpha1[celli] * (polybeta_m_s_l.value(T[celli]))) + ((1.0 - alpha1[celli]) * polybeta_g.value(T[celli]));
+    }
+    
+}
+
 
 volScalarField rhok
 (
