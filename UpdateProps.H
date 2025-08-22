@@ -4,7 +4,7 @@
 TSolidus=alpha1*Tsolidus1 + (1.0-alpha1)*Tsolidus2;
 TLiquidus=alpha1*Tliquidus1 + (1.0-alpha1)*Tliquidus2;
 // LatentHeat=alpha1*LatentHeat1 + (1.0-alpha1)*LatentHeat2;
-beta=alpha1*beta1 + (1.0-alpha1)*beta2;
+//beta=alpha1*beta1 + (1.0-alpha1)*beta2;
 
 rhok=(1.0-max(epsilon1*(beta)*(T-TSolidus),0.0));
 rhok.correctBoundaryConditions();
@@ -24,18 +24,21 @@ forAll(mesh.C(), celli)
         kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
         cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
         rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
+        beta[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polybeta_m_s.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polybeta_g.value(T[celli]));
     }
-    else if(T[celli] > TSolidus[celli] && T[celli] <= TLiquidus[celli])
-    {
-        kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
-        cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
-        rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
-    }
-    else
+    else if(T[celli] >= TLiquidus[celli])
     {
         kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
         cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
         rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
+        beta[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polybeta_m_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polybeta_g.value(T[celli]));
+    }
+    else
+    {
+        kappa[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polykappa_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polykappa_g.value(T[celli]));
+        cp[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polycp_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polycp_g.value(T[celli]));
+        rho[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polyrho_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polyrho_g.value(T[celli]));
+        beta[celli] = (max(min(alpha1[celli], 1.0), 0.0) * (polybeta_m_s_l.value(T[celli]))) + ((1.0 - max(min(alpha1[celli], 1.0), 0.0)) * polybeta_g.value(T[celli]));
     }
 }
 
