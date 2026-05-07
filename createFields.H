@@ -687,6 +687,23 @@ volScalarField alpha_filtered
     dimensionedScalar("alpha_filtered",dimensionSet(0, 0, 0, -0, 0),0.0)
 );
 
+
+volScalarField product_epsilon1_alpha1
+(
+    IOobject
+    (
+        "product_epsilon1_alpha1",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::AUTO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("product_epsilon1_alpha1",dimensionSet(0, 0, 0, -0, 0),0.0)
+);
+product_epsilon1_alpha1= epsilon1* alpha1;
+
+
 #include "createAlphaFluxes.H"
 
 // Construct incompressible turbulence model

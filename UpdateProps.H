@@ -166,3 +166,4 @@ forAll(CI, celli)
 
 gh = epsilon1mask*(g & mesh.C());
 ghf = fvc::interpolate(epsilon1mask)*(g & mesh.Cf());
+product_epsilon1_alpha1= epsilon1* alpha_filtered;
