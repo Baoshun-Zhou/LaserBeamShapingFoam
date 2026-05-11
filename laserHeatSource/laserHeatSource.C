@@ -135,7 +135,9 @@ namespace Foam
         const label N_sub_divisions(readLabel(lookup("N_sub_divisions")));
         const scalar HS_a(readScalar(lookup("HS_a")));
         const scalar HS_bg(readScalar(lookup("HS_bg")));
-        const scalar HS_velocity(readScalar(lookup("HS_velocity")));
+        const scalar HS_velocity_laser_on(readScalar(lookup("HS_velocity_laser_on")));
+        const scalar HS_velocity_laser_off(readScalar(lookup("HS_velocity_laser_off")));
+
         const scalar HS_lg(readScalar(lookup("HS_lg")));
         const scalar HS_Q(readScalar(lookup("HS_Q")));
         const vector V_incident(lookup("V_incident"));
@@ -149,7 +151,6 @@ namespace Foam
         const dimensionedScalar pi = constant::mathematical::pi;
         const dimensionedScalar a_cond("a_cond", dimensionSet(0, 1, 0, 0, 0), HS_a);
         const dimensionedScalar b_g("b_g", dimensionSet(0, 1, 0, 0, 0), HS_bg);
-        const dimensionedScalar v_arc("v_arc", dimensionSet(0, 1, -1, 0, 0), HS_velocity);
         const dimensionedScalar Q_cond("Q_cond", dimensionSet(1, 2, -3, 0, 0), HS_Q);
         const dimensionedScalar lg("lg", dimensionSet(0, 1, 0, 0, 0), HS_lg);
 
@@ -194,6 +195,34 @@ namespace Foam
             lookupOrDefault<Switch>("useLocalSearch", true));
         const label maxLocalSearch(
             lookupOrDefault<label>("maxLocalSearch", 100));
+
+        scalar HS_velocity;
+        if (std::fmod(time.value(), Period_T) < Period_QstartT || std::fmod(time.value(), Period_T) >= Period_QendT)
+        {
+            HS_velocity = HS_velocity_laser_off;
+        }
+        else
+        {
+            HS_velocity = HS_velocity_laser_on;
+        }
+        int n_cycles = std::floor(time.value() / Period_T);
+
+        double time_in_cycle_laer_on;
+        double time_in_cycle_laser_off;
+
+        if (  time.value() - (n_cycles * Period_T)<=Period_QendT){
+            time_in_cycle_laer_on = time.value() - (n_cycles * Period_T);
+            time_in_cycle_laser_off = 0.0;
+
+        }
+        else{
+            time_in_cycle_laer_on = Period_QendT;
+            time_in_cycle_laser_off = time.value() - (n_cycles * Period_T) - Period_QendT;
+        }
+
+        const dimensionedScalar v_arc("v_arc", dimensionSet(0, 1, -1, 0, 0), HS_velocity);
+
+
 
         if (debug)
         {
@@ -261,7 +290,8 @@ namespace Foam
             if (
                 (
                     Foam::pow(x_coord - bg_effective.value(), 2.0) + Foam::pow(
-                                                                         z_coord - (lg_effective.value() + (v_arc.value() * time.value())),
+                                                                         z_coord - (lg_effective.value() + (n_cycles*Period_QendT + time_in_cycle_laer_on)*HS_velocity_laser_on 
+                                                                         + (n_cycles*(Period_T-Period_QendT) + time_in_cycle_laser_off)*HS_velocity_laser_off),
                                                                          2.0) <=
                     Foam::pow(3 * beam_radius, 2.0)) && // Foam::pow( 1.5 * beam_radius, 2.0)) &&
                 (laserBoundary_[celli] > SMALL))
@@ -345,7 +375,8 @@ namespace Foam
 
             // Cross product to find distance to beam central axis
             const scalar dist_radius = Foam::sqrt(Foam::pow(pointslistGlobal1[i].x() - bg_effective.value(), 2.0) +
-                                                  Foam::pow(pointslistGlobal1[i].z() - (lg_effective.value() + (v_arc.value() * time.value())), 2.0));
+                                                  Foam::pow(pointslistGlobal1[i].z() - (lg_effective.value() + (n_cycles*Period_QendT + time_in_cycle_laer_on)*HS_velocity_laser_on 
+                                                  + (n_cycles*(Period_T-Period_QendT) + time_in_cycle_laser_off)*HS_velocity_laser_off), 2.0));
 
             // Global index to track the order of the ray direction-changes
             // This is only used for post-processing to write VTKs of the beams
