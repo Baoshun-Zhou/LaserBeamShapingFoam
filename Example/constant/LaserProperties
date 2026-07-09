@@ -1,0 +1,51 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  6
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      PhaseFieldProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+V_incident	(0 1 0);//(0 1 0);//NORMALISED IN CODE
+Gauss_core	(1 0.0 0.00002475);//(0 1 0);//NORMALISED IN CODE
+Gauss_ring	(0 0.00001 0.00001);//(0 1 0);//NORMALISED IN CODE
+omega 1;
+//Gamma_I 0.69075;
+Period_QstartT 0e-6; 
+Period_QendT 70e-6;
+Period_T    110e-6;
+
+HS_a 0.000035;
+HS_bg 0.0;//20
+//HS_velocity 0.65;//0.325;//6.0;
+HS_velocity_laser_on  0;//0.325;//6.0;
+HS_velocity_laser_off 1.125;//0.325;//6.0;
+HS_lg 2e-4;
+HS_Q   180;//250.0;//
+
+
+N_sub_divisions	1;
+
+//For linear path set oscAmpX=oscAmpz=0
+//For sine path set oscAmpz=0
+//For circular path set amplitude and frequency in both X and Z
+HS_oscAmpX 0.0;
+HS_oscAmpZ 0.0;
+
+HS_oscFreqX 180;
+HS_oscFreqZ 180;
+
+wavelength	1.07e-6;
+e_num_density	5.78e29;
+elec_resistivity	1.578e-6;
+
+
+Radius_Flavour	2.0;
