@@ -142,15 +142,21 @@ namespace Foam
 
         const scalar HS_lg(readScalar(lookup("HS_lg")));
         const scalar HS_Q(readScalar(lookup("HS_Q")));
+        const scalar Tsolidus1(readScalar(lookup("Tsolidus")));
+        const scalar Tliquidus1(readScalar(lookup("Tliquidus")));
         const vector V_incident(lookup("V_incident"));
         const vector Gauss_core(lookup("Gauss_core"));
         const vector Gauss_ring(lookup("Gauss_ring"));
         const scalar wavelength(readScalar(lookup("wavelength")));
 
-        Polynomial<8> poly_e_num_density(lookup("poly_e_num_density")); // Solid phase thermal conductivity
+        Polynomial<8> poly_e_num_density_s(lookup("poly_e_num_density_s"));     // Solid phase electron number density
+        Polynomial<8> poly_e_num_density_s_l(lookup("poly_e_num_density_s_l")); // Liquid-solid phase electron number density
+        Polynomial<8> poly_e_num_density_l(lookup("poly_e_num_density_l"));     // Liquid phase electron number density
         // const scalar e_num_density(readScalar(lookup("e_num_density")));
         //  elec_resistivity is temperature dependent - will include this in future versions
-        Polynomial<8> poly_elec_resistivity(lookup("poly_elec_resistivity"));
+        Polynomial<8> poly_elec_resistivity_s(lookup("poly_elec_resistivity_s"));     // Solid phase electrical resistivity
+        Polynomial<8> poly_elec_resistivity_s_l(lookup("poly_elec_resistivity_s_l")); // Liquid-solid phase electrical resistivity
+        Polynomial<8> poly_elec_resistivity_l(lookup("poly_elec_resistivity_l"));     // Liquid phase electrical resistivity
         // const scalar elec_resistivity(readScalar(lookup("elec_resistivity")));
 
         const dimensionedScalar pi = constant::mathematical::pi;
@@ -158,6 +164,8 @@ namespace Foam
         const dimensionedScalar b_g("b_g", dimensionSet(0, 1, 0, 0, 0), HS_bg);
         const dimensionedScalar Q_cond("Q_cond", dimensionSet(1, 2, -3, 0, 0), HS_Q);
         const dimensionedScalar lg("lg", dimensionSet(0, 1, 0, 0, 0), HS_lg);
+        const dimensionedScalar Tsol1("Tsol1", dimensionSet(0, 0, 0, 1, 0), Tsolidus1);
+        const dimensionedScalar Tliq1("Tliq1", dimensionSet(0, 0, 0, 1, 0), Tliquidus1);
 
         const scalar oscAmpX(readScalar(lookup("HS_oscAmpX")));
         const scalar oscAmpZ(readScalar(lookup("HS_oscAmpZ")));
@@ -176,674 +184,692 @@ namespace Foam
 
         forAll(CI, celli)
         {
-            plasma_frequency = Foam::sqrt(
-                (
-                    poly_e_num_density.value(TI[celli]) * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
-                (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
-
-            damping_frequency =
-                plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * poly_elec_resistivity.value(TI[celli]);
-        }
-        const scalar angular_frequency =
-            2.0 * pi.value() * constant::universal::c.value() / wavelength;
-
-        const scalar e_r =
-            1.0 - (sqr(plasma_frequency) / (sqr(angular_frequency) + sqr(damping_frequency)));
-        const scalar e_i =
-            (damping_frequency / angular_frequency) * ((plasma_frequency * plasma_frequency) / (angular_frequency * angular_frequency + damping_frequency * damping_frequency));
-        const scalar ref_index =
-            Foam::sqrt(
-                (Foam::sqrt((e_r * e_r) + (e_i * e_i)) + e_r) / 2.0);
-        const scalar ext_coefficient =
-            Foam::sqrt(
-                (Foam::sqrt((e_r * e_r) + (e_i * e_i)) - e_r) / 2.0);
-
-        const scalar dep_cutoff(lookupOrDefault<scalar>("dep_cutoff", 0.5));
-        const scalar Radius_Flavour(
-            lookupOrDefault<scalar>("Radius_Flavour", 2.0));
-        const double omega(
-            lookupOrDefault<scalar>("omega", 1.0));
-        const double Gamma_I(
-            lookupOrDefault<scalar>("Gamma_I", 1.0));
-        const double Period_QstartT(
-            lookupOrDefault<scalar>("Period_QstartT", 0.0));
-        const double Period_QendT(
-            lookupOrDefault<scalar>("Period_QendT", runTime.endTime().value()));
-        const double Period_T(
-            lookupOrDefault<scalar>("Period_T", runTime.endTime().value()));
-        const Switch useLocalSearch(
-            lookupOrDefault<Switch>("useLocalSearch", true));
-        const label maxLocalSearch(
-            lookupOrDefault<label>("maxLocalSearch", 100));
-
-        scalar HS_velocity;
-        if (std::fmod(time.value(), Period_T) < Period_QstartT || std::fmod(time.value(), Period_T) >= Period_QendT)
-        {
-            HS_velocity = HS_velocity_laser_off;
-        }
-        else
-        {
-            HS_velocity = HS_velocity_laser_on;
-        }
-        int n_cycles = std::floor(time.value() / Period_T);
-
-        double time_in_cycle_laer_on;
-        double time_in_cycle_laser_off;
-
-        if (time.value() - (n_cycles * Period_T) <= Period_QendT)
-        {
-            time_in_cycle_laer_on = time.value() - (n_cycles * Period_T);
-            time_in_cycle_laser_off = 0.0;
-            
-        }
-        else
-        {
-            time_in_cycle_laer_on = Period_QendT;
-            time_in_cycle_laser_off = time.value() - (n_cycles * Period_T) - Period_QendT;
-        }
-
-        const dimensionedScalar v_arc("v_arc", dimensionSet(0, 1, -1, 0, 0), HS_velocity);
-
-
-
-        if (debug)
-        {
-            Info << "useLocalSearch: " << useLocalSearch << nl << nl
-                 << " plasma_frequency: " << plasma_frequency << nl
-                 << " angular_frequency: " << angular_frequency << nl
-                 << " damping_frequency: " << damping_frequency << nl
-                 << " e_r: " << e_r << nl
-                 << " e_i: " << e_i << nl
-                 << " ref_index: " << ref_index << nl
-                 << " ext_coefficient: " << ext_coefficient << nl
-                 << "Gauss_core1: " << Gauss_core[0] << nl
-                 << "Gauss_core2: " << Gauss_core[1] << nl
-                 << "Gauss_core3: " << Gauss_core[2] << nl
-                 << "Gauss_ring1: " << Gauss_ring[0] << nl
-                 << "Gauss_ring2: " << Gauss_ring[1] << nl
-                 << "Gauss_ring3: " << Gauss_ring[2] << nl
-                 << nl << endl;
-        }
-
-        // It is assumed that the laser comes in on top y boundary
-        const vector normal_interface(0, 1, 0);
-
-        const scalar beam_radius =
-            a_cond.value() / Foam::cos(
-                                 Foam::acos(
-                                     (normal_interface & (V_incident / mag(V_incident))) / (mag(normal_interface) * mag(V_incident / mag(V_incident)))));
-
-        // Adjust sample radius for if beam is not normal too top boundary
-        const scalar CosTheta_incident =
-            Foam::cos(
-                Foam::acos(
-                    (normal_interface & (V_incident / mag(V_incident))) / (mag(normal_interface) * mag(V_incident / mag(V_incident)))));
-
-        if (debug)
-        {
-            Info << "cos(theta): " << CosTheta_incident << endl;
-        }
-
-        scalar listLength(0);
-        DynamicList<vector> initial_points(listLength, vector::zero);
-        initial_points.clear();
-
-        // List with size equal to number of processors
-        List<pointField> gatheredData1(Pstream::nProcs());
-
-        dimensionedScalar bg_effective = b_g.value() + oscAmpX * sin(2 * pi * oscFreqX * time.value());
-        dimensionedScalar lg_effective = lg.value() + oscAmpZ * cos(2 * pi * oscFreqZ * time.value());
-
-        forAll(CI, celli)
-        {
-            const scalar x_coord = CI[celli].x();
-            // const scalar y_coord = CI[celli].y();
-            const scalar z_coord = CI[celli].z();
-
-            // scalar beam_radius_adjusted_for_initial_incidence_angle =
-            // a_cond.value()/Foam::cos(Foam::acos(((V_incident/mag(V_incident)) & normal_interface)/(mag(V_incident/mag(V_incident))*mag(normal_interface))));
-
-            if (
-                (
-                    Foam::pow(x_coord - bg_effective.value(), 2.0) + Foam::pow(
-                                                                         z_coord - (lg_effective.value() + (n_cycles*Period_QendT + time_in_cycle_laer_on)*HS_velocity_laser_on 
-                                                                         + (n_cycles*(Period_T-Period_QendT) + time_in_cycle_laser_off)*HS_velocity_laser_off),
-                                                                         2.0) <=
-                    Foam::pow(3 * beam_radius, 2.0)) && // Foam::pow( 1.5 * beam_radius, 2.0)) &&
-                (laserBoundary_[celli] > SMALL))
+            if (T[celli] <= Tsol1.value())
             {
-                // rayNumber_[celli] = 1.0;
-                refineFlag_[celli] += 0.5;
-                // initial_points.append(CI[celli]);
+                plasma_frequency = Foam::sqrt(
+                    (
+                        poly_e_num_density_s.value(TI[celli]) * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
+                    (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
 
-                for (label Ray_j = 0; Ray_j < N_sub_divisions; Ray_j++)
-                {
-                    for (label Ray_k = 0; Ray_k < N_sub_divisions; Ray_k++)
-                    {
-                        point p_1(
-                            CI[celli].x() - (yDimI[celli] / 2.0) + ((yDimI[celli] / (N_sub_divisions + 1)) * (Ray_j + 1)),
-                            CI[celli].y(),
-                            CI[celli].z() - (yDimI[celli] / 2.0) + ((yDimI[celli] / (N_sub_divisions + 1)) * (Ray_k + 1)));
-                        initial_points.append(p_1);
-                    }
-                }
+                damping_frequency =
+                    plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * poly_elec_resistivity_s.value(TI[celli]);
             }
-        }
-
-        //  Populate and gather the list onto the master processor.
-        gatheredData1[Pstream::myProcNo()] = initial_points;
-        Pstream::gatherList(gatheredData1);
-
-        //  Distibulte the data accross the different processors
-        Pstream::scatterList(gatheredData1);
-
-        pointField pointslistGlobal1 // list of initial points
-            (
-                ListListOps::combine<Field<vector>>(
-                    gatheredData1,
-                    accessOp<Field<vector>>()));
-
-        // For each beam, store the starting point and locations at which the rays
-        // change direction. Also, store the global ordered index of the ray
-        // direction-change points
-        PtrList<DynamicList<vector>> beamDirectionChangePoints(
-            pointslistGlobal1.size());
-        PtrList<DynamicList<int>> beamDirectionChangeOrder(
-            pointslistGlobal1.size());
-
-        // Initialise: beams will likely change direction less than 100 times
-        forAll(beamDirectionChangePoints, rayI)
-        {
-            beamDirectionChangePoints.set(
-                rayI,
-                new DynamicList<vector>(100));
-            beamDirectionChangeOrder.set(
-                rayI,
-                new DynamicList<int>(100));
-
-            // Add initial point
-            beamDirectionChangePoints[rayI].append(pointslistGlobal1[rayI]);
-            beamDirectionChangeOrder[rayI].append(0);
-        }
-
-        // Store the list of cell indices where the ray tips are located; these will
-        // be used by the the findLocalSearch function when looking for the new tip
-        // cell indices
-        labelList rayCellIDs(pointslistGlobal1.size(), -1);
-
-        // scalar iterator_distance = (0.5/pi.value())*gMin(yDim_);//gMin(xcoord);
-        // if (debug)
-        // {
-        //     Info<<"iterator_distance    "<< iterator_distance << endl;
-        // }
-
-        // Loop over all starting points
-        Info << "Calculating laser beam rays" << endl;
-        forAll(pointslistGlobal1, i)
-        {
-            if (debug)
+            else if (T[celli] >= Tliq1.value())
             {
-                Info << "Beam " << i << endl;
-            }
+                plasma_frequency = Foam::sqrt(
+                    (
+                        poly_e_num_density_l.value(TI[celli]) * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
+                    (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
 
-            vector V2(V_incident / mag(V_incident));
-            point V1_tip(pointslistGlobal1[i]);
-
-            // Cross product to find distance to beam central axis
-            const scalar dist_radius = Foam::sqrt(Foam::pow(pointslistGlobal1[i].x() - bg_effective.value(), 2.0) +
-                                                  Foam::pow(pointslistGlobal1[i].z() - (lg_effective.value() + (n_cycles*Period_QendT + time_in_cycle_laer_on)*HS_velocity_laser_on 
-                                                  + (n_cycles*(Period_T-Period_QendT) + time_in_cycle_laser_off)*HS_velocity_laser_off), 2.0));
-
-            // Global index to track the order of the ray direction-changes
-            // This is only used for post-processing to write VTKs of the beams
-            label directionChangeOrderI = 0;
-
-            // Info<<"x0:: "<<x0<<endl;
-
-            // Info<<"dist:: "<<dist<<endl;
-
-            //   scalar Q=((3.0*Q_cond.value())/(a_cond.value()*a_cond.value()*pi.value()))
-            //              *Foam::exp(-3.0*(Foam::pow(((pointslistGlobal1[i].x()-b_g.value())/(beam_radius)),2.0)+
-            //         Foam::pow((pointslistGlobal1[i].z()-(v_arc.value()*time.value())-lg.value())/(beam_radius),2.0)));
-
-            scalar Q1;
-
-            if (Gauss_core[2] != 0)
-            {
-                Q1 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
+                damping_frequency =
+                    plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * poly_elec_resistivity_l.value(TI[celli]);
             }
             else
             {
-                Q1 = 0;
-            }
+                plasma_frequency = Foam::sqrt(
+                    (
+                        poly_e_num_density_s_l.value(TI[celli]) * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
+                    (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
 
-            scalar Q2;
-
-            if (Gauss_ring[2] != 0)
-            {
-                Q2 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
+                damping_frequency =
+                    plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * poly_elec_resistivity_s_l.value(TI[celli]);
             }
-            else
-            {
-                Q2 = 0.0;
-            }
+        }
+            const scalar angular_frequency =
+                2.0 * pi.value() * constant::universal::c.value() / wavelength;
 
-            // ID of the processor that contains the beam tip
-            scalar TempCoeff = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / pi.value());
-            scalar Q;
+            const scalar e_r =
+                1.0 - (sqr(plasma_frequency) / (sqr(angular_frequency) + sqr(damping_frequency)));
+            const scalar e_i =
+                (damping_frequency / angular_frequency) * ((plasma_frequency * plasma_frequency) / (angular_frequency * angular_frequency + damping_frequency * damping_frequency));
+            const scalar ref_index =
+                Foam::sqrt(
+                    (Foam::sqrt((e_r * e_r) + (e_i * e_i)) + e_r) / 2.0);
+            const scalar ext_coefficient =
+                Foam::sqrt(
+                    (Foam::sqrt((e_r * e_r) + (e_i * e_i)) - e_r) / 2.0);
+
+            const scalar dep_cutoff(lookupOrDefault<scalar>("dep_cutoff", 0.5));
+            const scalar Radius_Flavour(
+                lookupOrDefault<scalar>("Radius_Flavour", 2.0));
+            const double omega(
+                lookupOrDefault<scalar>("omega", 1.0));
+            const double Gamma_I(
+                lookupOrDefault<scalar>("Gamma_I", 1.0));
+            const double Period_QstartT(
+                lookupOrDefault<scalar>("Period_QstartT", 0.0));
+            const double Period_QendT(
+                lookupOrDefault<scalar>("Period_QendT", runTime.endTime().value()));
+            const double Period_T(
+                lookupOrDefault<scalar>("Period_T", runTime.endTime().value()));
+            const Switch useLocalSearch(
+                lookupOrDefault<Switch>("useLocalSearch", true));
+            const label maxLocalSearch(
+                lookupOrDefault<label>("maxLocalSearch", 100));
+
+            scalar HS_velocity;
             if (std::fmod(time.value(), Period_T) < Period_QstartT || std::fmod(time.value(), Period_T) >= Period_QendT)
             {
-                Q = 0;
+                HS_velocity = HS_velocity_laser_off;
             }
             else
             {
-                if (Gauss_ring[1] != 0 && Gauss_ring[1] != 0)
+                HS_velocity = HS_velocity_laser_on;
+            }
+            int n_cycles = std::floor(time.value() / Period_T);
+
+            double time_in_cycle_laer_on;
+            double time_in_cycle_laser_off;
+
+            if (time.value() - (n_cycles * Period_T) <= Period_QendT)
+            {
+                time_in_cycle_laer_on = time.value() - (n_cycles * Period_T);
+                time_in_cycle_laser_off = 0.0;
+            }
+            else
+            {
+                time_in_cycle_laer_on = Period_QendT;
+                time_in_cycle_laser_off = time.value() - (n_cycles * Period_T) - Period_QendT;
+            }
+
+            const dimensionedScalar v_arc("v_arc", dimensionSet(0, 1, -1, 0, 0), HS_velocity);
+
+            if (debug)
+            {
+                Info << "useLocalSearch: " << useLocalSearch << nl << nl
+                     << " plasma_frequency: " << plasma_frequency << nl
+                     << " angular_frequency: " << angular_frequency << nl
+                     << " damping_frequency: " << damping_frequency << nl
+                     << " e_r: " << e_r << nl
+                     << " e_i: " << e_i << nl
+                     << " ref_index: " << ref_index << nl
+                     << " ext_coefficient: " << ext_coefficient << nl
+                     << "Gauss_core1: " << Gauss_core[0] << nl
+                     << "Gauss_core2: " << Gauss_core[1] << nl
+                     << "Gauss_core3: " << Gauss_core[2] << nl
+                     << "Gauss_ring1: " << Gauss_ring[0] << nl
+                     << "Gauss_ring2: " << Gauss_ring[1] << nl
+                     << "Gauss_ring3: " << Gauss_ring[2] << nl
+                     << nl << endl;
+            }
+
+            // It is assumed that the laser comes in on top y boundary
+            const vector normal_interface(0, 1, 0);
+
+            const scalar beam_radius =
+                a_cond.value() / Foam::cos(
+                                     Foam::acos(
+                                         (normal_interface & (V_incident / mag(V_incident))) / (mag(normal_interface) * mag(V_incident / mag(V_incident)))));
+
+            // Adjust sample radius for if beam is not normal too top boundary
+            const scalar CosTheta_incident =
+                Foam::cos(
+                    Foam::acos(
+                        (normal_interface & (V_incident / mag(V_incident))) / (mag(normal_interface) * mag(V_incident / mag(V_incident)))));
+
+            if (debug)
+            {
+                Info << "cos(theta): " << CosTheta_incident << endl;
+            }
+
+            scalar listLength(0);
+            DynamicList<vector> initial_points(listLength, vector::zero);
+            initial_points.clear();
+
+            // List with size equal to number of processors
+            List<pointField> gatheredData1(Pstream::nProcs());
+
+            dimensionedScalar bg_effective = b_g.value() + oscAmpX * sin(2 * pi * oscFreqX * time.value());
+            dimensionedScalar lg_effective = lg.value() + oscAmpZ * cos(2 * pi * oscFreqZ * time.value());
+
+            forAll(CI, celli)
+            {
+                const scalar x_coord = CI[celli].x();
+                // const scalar y_coord = CI[celli].y();
+                const scalar z_coord = CI[celli].z();
+
+                // scalar beam_radius_adjusted_for_initial_incidence_angle =
+                // a_cond.value()/Foam::cos(Foam::acos(((V_incident/mag(V_incident)) & normal_interface)/(mag(V_incident/mag(V_incident))*mag(normal_interface))));
+
+                if (
+                    (
+                        Foam::pow(x_coord - bg_effective.value(), 2.0) + Foam::pow(
+                                                                             z_coord - (lg_effective.value() + (n_cycles * Period_QendT + time_in_cycle_laer_on) * HS_velocity_laser_on + (n_cycles * (Period_T - Period_QendT) + time_in_cycle_laser_off) * HS_velocity_laser_off),
+                                                                             2.0) <=
+                        Foam::pow(3 * beam_radius, 2.0)) && // Foam::pow( 1.5 * beam_radius, 2.0)) &&
+                    (laserBoundary_[celli] > SMALL))
                 {
-                    Q = TempCoeff * (Gauss_core[0] / (Gauss_core[0] + Gauss_ring[0]) / (2 * Foam::pow(Gauss_core[2], 2.0)) * Q1 +
-                                     Gauss_ring[0] / (Gauss_core[0] + Gauss_ring[0]) / (4 * Foam::pow(2, 0.5) * omega * Gauss_ring[1] * Gauss_ring[2]) * Q2);
-                }
-                else
-                {
-                    Q = TempCoeff * Q1 / (2 * Foam::pow(Gauss_core[2], 2.0));
+                    // rayNumber_[celli] = 1.0;
+                    refineFlag_[celli] += 0.5;
+                    // initial_points.append(CI[celli]);
+
+                    for (label Ray_j = 0; Ray_j < N_sub_divisions; Ray_j++)
+                    {
+                        for (label Ray_k = 0; Ray_k < N_sub_divisions; Ray_k++)
+                        {
+                            point p_1(
+                                CI[celli].x() - (yDimI[celli] / 2.0) + ((yDimI[celli] / (N_sub_divisions + 1)) * (Ray_j + 1)),
+                                CI[celli].y(),
+                                CI[celli].z() - (yDimI[celli] / 2.0) + ((yDimI[celli] / (N_sub_divisions + 1)) * (Ray_k + 1)));
+                            initial_points.append(p_1);
+                        }
+                    }
                 }
             }
 
-            label tipProcID = -1;
+            //  Populate and gather the list onto the master processor.
+            gatheredData1[Pstream::myProcNo()] = initial_points;
+            Pstream::gatherList(gatheredData1);
 
-            while (Q > 1.0e-9)
+            //  Distibulte the data accross the different processors
+            Pstream::scatterList(gatheredData1);
+
+            pointField pointslistGlobal1 // list of initial points
+                (
+                    ListListOps::combine<Field<vector>>(
+                        gatheredData1,
+                        accessOp<Field<vector>>()));
+
+            // For each beam, store the starting point and locations at which the rays
+            // change direction. Also, store the global ordered index of the ray
+            // direction-change points
+            PtrList<DynamicList<vector>> beamDirectionChangePoints(
+                pointslistGlobal1.size());
+            PtrList<DynamicList<int>> beamDirectionChangeOrder(
+                pointslistGlobal1.size());
+
+            // Initialise: beams will likely change direction less than 100 times
+            forAll(beamDirectionChangePoints, rayI)
             {
-                // Track when the tip changes direction for post-processing the rays
-                bool beamChangedDirection = false;
+                beamDirectionChangePoints.set(
+                    rayI,
+                    new DynamicList<vector>(100));
+                beamDirectionChangeOrder.set(
+                    rayI,
+                    new DynamicList<int>(100));
 
-                point DUMMYMAX(-GREAT, -GREAT, -GREAT);
-                scalar DUMMYSCAL(-GREAT);
+                // Add initial point
+                beamDirectionChangePoints[rayI].append(pointslistGlobal1[rayI]);
+                beamDirectionChangeOrder[rayI].append(0);
+            }
 
-                // Search for the cell that contains the local beam tip
-                // Only the processor that contained the old tip will perform the
-                // search, or all processor will search if the old tip is not on any
-                // processor
-                label myCellId = -1;
-                if (tipProcID == Pstream::myProcNo() || tipProcID == -1)
+            // Store the list of cell indices where the ray tips are located; these will
+            // be used by the the findLocalSearch function when looking for the new tip
+            // cell indices
+            labelList rayCellIDs(pointslistGlobal1.size(), -1);
+
+            // scalar iterator_distance = (0.5/pi.value())*gMin(yDim_);//gMin(xcoord);
+            // if (debug)
+            // {
+            //     Info<<"iterator_distance    "<< iterator_distance << endl;
+            // }
+
+            // Loop over all starting points
+            Info << "Calculating laser beam rays" << endl;
+            forAll(pointslistGlobal1, i)
+            {
+                if (debug)
                 {
-                    if (useLocalSearch)
-                    {
-                        myCellId =
-                            findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
-                    }
-                    else
-                    {
-                        myCellId = mesh.findCell(V1_tip);
-                    }
+                    Info << "Beam " << i << endl;
                 }
 
-                // Proc ID where the tip is located
-                // If the tip in not on any processor, then this is set to -1
-                if (myCellId != -1)
+                vector V2(V_incident / mag(V_incident));
+                point V1_tip(pointslistGlobal1[i]);
+
+                // Cross product to find distance to beam central axis
+                const scalar dist_radius = Foam::sqrt(Foam::pow(pointslistGlobal1[i].x() - bg_effective.value(), 2.0) +
+                                                      Foam::pow(pointslistGlobal1[i].z() - (lg_effective.value() + (n_cycles * Period_QendT + time_in_cycle_laer_on) * HS_velocity_laser_on + (n_cycles * (Period_T - Period_QendT) + time_in_cycle_laser_off) * HS_velocity_laser_off), 2.0));
+
+                // Global index to track the order of the ray direction-changes
+                // This is only used for post-processing to write VTKs of the beams
+                label directionChangeOrderI = 0;
+
+                // Info<<"x0:: "<<x0<<endl;
+
+                // Info<<"dist:: "<<dist<<endl;
+
+                //   scalar Q=((3.0*Q_cond.value())/(a_cond.value()*a_cond.value()*pi.value()))
+                //              *Foam::exp(-3.0*(Foam::pow(((pointslistGlobal1[i].x()-b_g.value())/(beam_radius)),2.0)+
+                //         Foam::pow((pointslistGlobal1[i].z()-(v_arc.value()*time.value())-lg.value())/(beam_radius),2.0)));
+
+                scalar Q1;
+
+                if (Gauss_core[2] != 0)
                 {
-                    tipProcID = Pstream::myProcNo();
+                    Q1 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_core[1]), 2.0) / Foam::pow(Gauss_core[2], 2.0)));
                 }
                 else
                 {
-                    tipProcID = -1;
+                    Q1 = 0;
                 }
-                reduce(tipProcID, maxOp<label>());
 
-                if (myCellId != -1)
+                scalar Q2;
+
+                if (Gauss_ring[2] != 0)
                 {
-                    rayNumber_[myCellId] = i + 1; // set test field to beam flavour
-                    rayQ_[myCellId] = Q;
+                    Q2 = Gamma_I * Foam::exp(-0.5 * Radius_Flavour * (Foam::pow((dist_radius - Gauss_ring[1]), 2.0) / Foam::pow(Gauss_ring[2], 2.0)));
+                }
+                else
+                {
+                    Q2 = 0.0;
+                }
 
-                    if (mag(nFilteredI[myCellId]) > 0.5 && alphaFilteredI[myCellId] >= dep_cutoff)
+                // ID of the processor that contains the beam tip
+                scalar TempCoeff = (CosTheta_incident / (N_sub_divisions * N_sub_divisions)) * ((Radius_Flavour * Q_cond.value()) / pi.value());
+                scalar Q;
+                if (std::fmod(time.value(), Period_T) < Period_QstartT || std::fmod(time.value(), Period_T) >= Period_QendT)
+                {
+                    Q = 0;
+                }
+                else
+                {
+                    if (Gauss_ring[1] != 0 && Gauss_ring[1] != 0)
                     {
-
-                        // for(scalar theta_in=0.0;theta_in<=1.57;theta_in+=0.01){ // to plot absorptivity as a function of incideince angle - a bit hacky
-                        scalar argument = (V2 & nFilteredI[myCellId]) / (mag(V2) * mag(nFilteredI[myCellId]));
-                        if (argument >= 1.0 - SMALL)
-                        {
-                            argument = 1.0;
-                        }
-                        if (argument <= -1.0 + SMALL)
-                        {
-                            argument = -1.0;
-                        }
-
-                        scalar theta_in = (std::acos(argument));
-
-                        scalar alpha_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) + sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) / (2.0));
-                        scalar beta_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) - sqr(ref_index) + sqr(ext_coefficient) + sqr(Foam::sin(theta_in))) / (2.0));
-                        scalar R_s = ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))));
-                        scalar R_p = R_s * ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))));
-                        scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0); // 1.0;//
-                        // scalar absorptivity = 1.0;//1.0;//
-
-                        // }
-
-                        // Sometimes the ray can be reflected and 'skip' along the
-                        // interface cells - this is unphysical and the ray should
-                        // traverse  without depositing any energy so set Q to 0 in
-                        // this instance
-                        if (theta_in >= (pi.value() / 2.0))
-                        {
-                            Q *= 0.0;
-                            deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
-                            if (debug)
-                            {
-                                errorTrack_[myCellId] -= 1.0;
-                            }
-                            beamChangedDirection = true;
-                        }
-                        // else{}
-                        else
-                        {
-                            // Pout<<"TEST_HERE_pre_reflec"<<endl;
-                            deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
-                            Q *= (1.0 - absorptivity);
-                            V2 = V2 - (((((2.0 * V2) & nFilteredI[myCellId]) / (mag(nFilteredI[myCellId]) * mag(nFilteredI[myCellId])))) * nFilteredI[myCellId]); //;
-                            beamChangedDirection = true;
-                            // Pout<<"TEST_HERE_reflec"<<endl;
-                        }
+                        Q = TempCoeff * (Gauss_core[0] / (Gauss_core[0] + Gauss_ring[0]) / (2 * Foam::pow(Gauss_core[2], 2.0)) * Q1 +
+                                         Gauss_ring[0] / (Gauss_core[0] + Gauss_ring[0]) / (4 * Foam::pow(2, 0.5) * omega * Gauss_ring[1] * Gauss_ring[2]) * Q2);
                     }
                     else
                     {
-                        // if the ray step size happens to be large enough that it skips through the interface send ray back the way it came
-                        if (alphaFilteredI[myCellId] > dep_cutoff && mag(nFilteredI[myCellId]) < 0.5)
+                        Q = TempCoeff * Q1 / (2 * Foam::pow(Gauss_core[2], 2.0));
+                    }
+                }
+
+                label tipProcID = -1;
+
+                while (Q > 1.0e-9)
+                {
+                    // Track when the tip changes direction for post-processing the rays
+                    bool beamChangedDirection = false;
+
+                    point DUMMYMAX(-GREAT, -GREAT, -GREAT);
+                    scalar DUMMYSCAL(-GREAT);
+
+                    // Search for the cell that contains the local beam tip
+                    // Only the processor that contained the old tip will perform the
+                    // search, or all processor will search if the old tip is not on any
+                    // processor
+                    label myCellId = -1;
+                    if (tipProcID == Pstream::myProcNo() || tipProcID == -1)
+                    {
+                        if (useLocalSearch)
                         {
-                            if (debug)
+                            myCellId =
+                                findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
+                        }
+                        else
+                        {
+                            myCellId = mesh.findCell(V1_tip);
+                        }
+                    }
+
+                    // Proc ID where the tip is located
+                    // If the tip in not on any processor, then this is set to -1
+                    if (myCellId != -1)
+                    {
+                        tipProcID = Pstream::myProcNo();
+                    }
+                    else
+                    {
+                        tipProcID = -1;
+                    }
+                    reduce(tipProcID, maxOp<label>());
+
+                    if (myCellId != -1)
+                    {
+                        rayNumber_[myCellId] = i + 1; // set test field to beam flavour
+                        rayQ_[myCellId] = Q;
+
+                        if (mag(nFilteredI[myCellId]) > 0.5 && alphaFilteredI[myCellId] >= dep_cutoff)
+                        {
+
+                            // for(scalar theta_in=0.0;theta_in<=1.57;theta_in+=0.01){ // to plot absorptivity as a function of incideince angle - a bit hacky
+                            scalar argument = (V2 & nFilteredI[myCellId]) / (mag(V2) * mag(nFilteredI[myCellId]));
+                            if (argument >= 1.0 - SMALL)
                             {
-                                errorTrack_[myCellId] += 1.0;
+                                argument = 1.0;
                             }
-                            scalar theta_in = 0.0; // Foam::acos((V2 & nFilteredI[myCellId])/(mag(V2)*mag(nFilteredI[myCellId])));
+                            if (argument <= -1.0 + SMALL)
+                            {
+                                argument = -1.0;
+                            }
+
+                            scalar theta_in = (std::acos(argument));
 
                             scalar alpha_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) + sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) / (2.0));
                             scalar beta_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) - sqr(ref_index) + sqr(ext_coefficient) + sqr(Foam::sin(theta_in))) / (2.0));
                             scalar R_s = ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))));
                             scalar R_p = R_s * ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))));
+                            scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0); // 1.0;//
+                            // scalar absorptivity = 1.0;//1.0;//
 
-                            scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0);
-                            // scalar absorptivity = 1.0;
+                            // }
 
-                            V2 = -V2; // if the ray slips through the interface (unlikely) send it back the way it came because it must have been at 0 degrees anyway
-                            // Q = DUMMYSCAL;
-                            beamChangedDirection = true;
-                            deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
-                            Q *= (1.0 - absorptivity);
+                            // Sometimes the ray can be reflected and 'skip' along the
+                            // interface cells - this is unphysical and the ray should
+                            // traverse  without depositing any energy so set Q to 0 in
+                            // this instance
+                            if (theta_in >= (pi.value() / 2.0))
+                            {
+                                Q *= 0.0;
+                                deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
+                                if (debug)
+                                {
+                                    errorTrack_[myCellId] -= 1.0;
+                                }
+                                beamChangedDirection = true;
+                            }
+                            // else{}
+                            else
+                            {
+                                // Pout<<"TEST_HERE_pre_reflec"<<endl;
+                                deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
+                                Q *= (1.0 - absorptivity);
+                                V2 = V2 - (((((2.0 * V2) & nFilteredI[myCellId]) / (mag(nFilteredI[myCellId]) * mag(nFilteredI[myCellId])))) * nFilteredI[myCellId]); //;
+                                beamChangedDirection = true;
+                                // Pout<<"TEST_HERE_reflec"<<endl;
+                            }
                         }
                         else
                         {
-                        } // Catch rays that get through
+                            // if the ray step size happens to be large enough that it skips through the interface send ray back the way it came
+                            if (alphaFilteredI[myCellId] > dep_cutoff && mag(nFilteredI[myCellId]) < 0.5)
+                            {
+                                if (debug)
+                                {
+                                    errorTrack_[myCellId] += 1.0;
+                                }
+                                scalar theta_in = 0.0; // Foam::acos((V2 & nFilteredI[myCellId])/(mag(V2)*mag(nFilteredI[myCellId])));
+
+                                scalar alpha_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) + sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) / (2.0));
+                                scalar beta_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) - sqr(ref_index) + sqr(ext_coefficient) + sqr(Foam::sin(theta_in))) / (2.0));
+                                scalar R_s = ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))));
+                                scalar R_p = R_s * ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))));
+
+                                scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0);
+                                // scalar absorptivity = 1.0;
+
+                                V2 = -V2; // if the ray slips through the interface (unlikely) send it back the way it came because it must have been at 0 degrees anyway
+                                // Q = DUMMYSCAL;
+                                beamChangedDirection = true;
+                                deposition_[myCellId] += (absorptivity * Q) / yDimI[myCellId];
+                                Q *= (1.0 - absorptivity);
+                            }
+                            else
+                            {
+                            } // Catch rays that get through
+                        }
+
+                        // Catch rays that get through--maybe gump all their energy here
+                    }
+                    else
+                    {
+                        // The tip is not on this processor for one of two reasons:
+                        // 1. the tip left the entire global domain
+                        // 2. the tip is on another processor
+                        V2 = DUMMYMAX;
+                        Q = DUMMYSCAL;
+                        beamChangedDirection = true;
                     }
 
-                    // Catch rays that get through--maybe gump all their energy here
-                }
-                else
-                {
-                    // The tip is not on this processor for one of two reasons:
-                    // 1. the tip left the entire global domain
-                    // 2. the tip is on another processor
-                    V2 = DUMMYMAX;
-                    Q = DUMMYSCAL;
-                    beamChangedDirection = true;
-                }
+                    reduce(V2, maxOp<vector>());
+                    reduce(Q, maxOp<scalar>());
 
-                reduce(V2, maxOp<vector>());
-                reduce(Q, maxOp<scalar>());
+                    // Update seed cells for local search
+                    rayCellIDs[i] = myCellId;
 
-                // Update seed cells for local search
-                rayCellIDs[i] = myCellId;
-
-                if (tipProcID == Pstream::myProcNo())
-                {
-                    label myCellIdnext =
-                        findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
-
-                    if (myCellIdnext != -1)
+                    if (tipProcID == Pstream::myProcNo())
                     {
-                        while (myCellIdnext == myCellId)
+                        label myCellIdnext =
+                            findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
+
+                        if (myCellIdnext != -1)
                         {
-                            if (beamChangedDirection)
+                            while (myCellIdnext == myCellId)
                             {
-                                // Write current tip position to array
-                                beamDirectionChangePoints[i].append(V1_tip);
-                                beamDirectionChangeOrder[i].append(directionChangeOrderI);
-                                beamChangedDirection = false;
+                                if (beamChangedDirection)
+                                {
+                                    // Write current tip position to array
+                                    beamDirectionChangePoints[i].append(V1_tip);
+                                    beamDirectionChangeOrder[i].append(directionChangeOrderI);
+                                    beamChangedDirection = false;
+                                }
+
+                                //  V1_tip += (iterator_distance*V2);//OLD
+
+                                scalar iterator_distance = (0.5 / pi.value()) * yDimI[myCellId]; // gMin(xcoord);
+                                if (debug)
+                                {
+                                    Info << "iterator_distance    " << iterator_distance << endl;
+                                }
+
+                                V1_tip += (iterator_distance * V2);
+                                // myCellIdnext = mesh.findCell(V1_tip);
+                                myCellIdnext =
+                                    findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
                             }
-
-                            //  V1_tip += (iterator_distance*V2);//OLD
-
-                            scalar iterator_distance = (0.5 / pi.value()) * yDimI[myCellId]; // gMin(xcoord);
-                            if (debug)
-                            {
-                                Info << "iterator_distance    " << iterator_distance << endl;
-                            }
-
-                            V1_tip += (iterator_distance * V2);
-                            // myCellIdnext = mesh.findCell(V1_tip);
-                            myCellIdnext =
-                                findLocalCell(V1_tip, rayCellIDs[i], mesh, maxLocalSearch, debug);
                         }
+                        else
+                        {
+                            V1_tip = DUMMYMAX;
+                        }
+
+                        // Update direction-change ordered index
+                        directionChangeOrderI++;
+
+                        // Update seed cells for local search
+                        rayCellIDs[i] = myCellIdnext;
                     }
                     else
                     {
                         V1_tip = DUMMYMAX;
                     }
+                    reduce(V1_tip, maxOp<vector>()); // reduce vector //
+                    //  Q-=0.1;
 
-                    // Update direction-change ordered index
-                    directionChangeOrderI++;
+                    if (rayCellIDs[i] == -1)
+                    {
+                        tipProcID = -1;
+                    }
+                    reduce(tipProcID, maxOp<label>());
 
-                    // Update seed cells for local search
-                    rayCellIDs[i] = myCellIdnext;
+                    // Sync direction-change ordered index
+                    reduce(directionChangeOrderI, maxOp<int>());
+
+                    // // Update seed cells for local search
+                    // rayCellIDs[i] = myCellIdnext;
+                };
+
+                // countbeams++;
+                // if (countbeams>=1){break;}
+            }
+
+            //  gSum(mesh.V()*deposition_);
+            // const scalar TotalQ = gSum(deposition_*mesh.V().value());
+            const scalar TotalQ = fvc::domainIntegrate(deposition_).value();
+            Info << "Total Q deposited this timestep:: " << TotalQ << endl;
+
+            // Combine rays across procs
+            if (runTime.outputTime() && Pstream::parRun())
+            {
+                if (debug)
+                {
+                    Info << "Parallel syncing beams!" << endl;
+                }
+
+                // The ray starting points were added to the beamDirectionChangePoints list
+                // on all procs, so we will remove them from all procs apart from the master
+                // Note: the beamDirectionChangePoints list is only synced at output times
+                // and will only be correct on the master proc which writes them
+                if (!Pstream::master())
+                {
+                    forAll(beamDirectionChangePoints, rayI)
+                    {
+                        beamDirectionChangePoints[rayI] =
+                            SubField<vector>(
+                                beamDirectionChangePoints[rayI],
+                                beamDirectionChangePoints[rayI].size() - 1,
+                                1);
+
+                        beamDirectionChangeOrder[rayI] =
+                            SubField<int>(
+                                beamDirectionChangeOrder[rayI],
+                                beamDirectionChangeOrder[rayI].size() - 1,
+                                1);
+                    }
+                }
+
+                // Sync beams across procs
+                forAll(beamDirectionChangePoints, rayI)
+                {
+                    {
+                        List<List<vector>> gatheredField(Pstream::nProcs());
+                        gatheredField[Pstream::myProcNo()] = beamDirectionChangePoints[rayI];
+                        Pstream::gatherList(gatheredField);
+
+                        beamDirectionChangePoints[rayI] =
+                            ListListOps::combine<List<vector>>(
+                                gatheredField,
+                                accessOp<List<vector>>());
+                    }
+
+                    {
+                        List<List<int>> gatheredField(Pstream::nProcs());
+                        gatheredField[Pstream::myProcNo()] = beamDirectionChangeOrder[rayI];
+                        Pstream::gatherList(gatheredField);
+
+                        beamDirectionChangeOrder[rayI] =
+                            ListListOps::combine<List<int>>(
+                                gatheredField,
+                                accessOp<List<int>>());
+                    }
+
+                    // Re-order the list
+                    if (Pstream::master())
+                    {
+                        SortableList<int> sortedOrder(beamDirectionChangeOrder[rayI]);
+                        List<vector> unsortedPoints(beamDirectionChangePoints[rayI]);
+                        List<int> unsortedOrder(beamDirectionChangeOrder[rayI]);
+                        forAll(sortedOrder, i)
+                        {
+                            beamDirectionChangePoints[rayI][i] =
+                                unsortedPoints[sortedOrder.indices()[i]];
+                            beamDirectionChangeOrder[rayI][i] =
+                                unsortedOrder[sortedOrder.indices()[i]];
+                        }
+                    }
+                }
+            }
+
+            // Write rays
+            if (runTime.outputTime() && Pstream::master())
+            {
+                if (debug)
+                {
+                    forAll(beamDirectionChangePoints, rayI)
+                    {
+                        Info << "ray " << rayI << endl;
+                        forAll(beamDirectionChangePoints[rayI], i)
+                        {
+                            Info << "    " << beamDirectionChangePoints[rayI][i] << endl;
+                        }
+                    }
+                }
+
+                // Write rays in VTK format
+                // See
+                // https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html
+
+                // Create a directory for the VTK files
+                fileName vtkDir;
+                if (Pstream::parRun())
+                {
+                    vtkDir = runTime.path() / ".." / "VTKs";
                 }
                 else
                 {
-                    V1_tip = DUMMYMAX;
+                    vtkDir = runTime.path() / "VTKs";
                 }
-                reduce(V1_tip, maxOp<vector>()); // reduce vector //
-                //  Q-=0.1;
 
-                if (rayCellIDs[i] == -1)
-                {
-                    tipProcID = -1;
-                }
-                reduce(tipProcID, maxOp<label>());
+                mkDir(vtkDir);
 
-                // Sync direction-change ordered index
-                reduce(directionChangeOrderI, maxOp<int>());
+                // Create a VTK file
+                OFstream rayVtkFile(
+                    vtkDir / "rays_" //+ runTime.timeName() + "_"
+                    + Foam::name(runTime.timeIndex()) + ".vtk");
 
-                // // Update seed cells for local search
-                // rayCellIDs[i] = myCellIdnext;
-            };
+                Info << "Writing rays to " << rayVtkFile.name() << endl;
 
-            // countbeams++;
-            // if (countbeams>=1){break;}
-        }
+                // Write header
+                rayVtkFile
+                    << "# vtk DataFile Version 2.0" << nl
+                    << "Rays" << nl
+                    << "ASCII" << endl;
 
-        //  gSum(mesh.V()*deposition_);
-        // const scalar TotalQ = gSum(deposition_*mesh.V().value());
-        const scalar TotalQ = fvc::domainIntegrate(deposition_).value();
-        Info << "Total Q deposited this timestep:: " << TotalQ << endl;
-
-        // Combine rays across procs
-        if (runTime.outputTime() && Pstream::parRun())
-        {
-            if (debug)
-            {
-                Info << "Parallel syncing beams!" << endl;
-            }
-
-            // The ray starting points were added to the beamDirectionChangePoints list
-            // on all procs, so we will remove them from all procs apart from the master
-            // Note: the beamDirectionChangePoints list is only synced at output times
-            // and will only be correct on the master proc which writes them
-            if (!Pstream::master())
-            {
+                // Count the number of points and calculate the offset for each ray
+                label nRayPoints = 0;
+                labelList pointIdOffset(beamDirectionChangePoints.size(), 0);
                 forAll(beamDirectionChangePoints, rayI)
                 {
-                    beamDirectionChangePoints[rayI] =
-                        SubField<vector>(
-                            beamDirectionChangePoints[rayI],
-                            beamDirectionChangePoints[rayI].size() - 1,
-                            1);
+                    nRayPoints += beamDirectionChangePoints[rayI].size();
 
-                    beamDirectionChangeOrder[rayI] =
-                        SubField<int>(
-                            beamDirectionChangeOrder[rayI],
-                            beamDirectionChangeOrder[rayI].size() - 1,
-                            1);
-                }
-            }
-
-            // Sync beams across procs
-            forAll(beamDirectionChangePoints, rayI)
-            {
-                {
-                    List<List<vector>> gatheredField(Pstream::nProcs());
-                    gatheredField[Pstream::myProcNo()] = beamDirectionChangePoints[rayI];
-                    Pstream::gatherList(gatheredField);
-
-                    beamDirectionChangePoints[rayI] =
-                        ListListOps::combine<List<vector>>(
-                            gatheredField,
-                            accessOp<List<vector>>());
-                }
-
-                {
-                    List<List<int>> gatheredField(Pstream::nProcs());
-                    gatheredField[Pstream::myProcNo()] = beamDirectionChangeOrder[rayI];
-                    Pstream::gatherList(gatheredField);
-
-                    beamDirectionChangeOrder[rayI] =
-                        ListListOps::combine<List<int>>(
-                            gatheredField,
-                            accessOp<List<int>>());
-                }
-
-                // Re-order the list
-                if (Pstream::master())
-                {
-                    SortableList<int> sortedOrder(beamDirectionChangeOrder[rayI]);
-                    List<vector> unsortedPoints(beamDirectionChangePoints[rayI]);
-                    List<int> unsortedOrder(beamDirectionChangeOrder[rayI]);
-                    forAll(sortedOrder, i)
+                    if (rayI > 0)
                     {
-                        beamDirectionChangePoints[rayI][i] =
-                            unsortedPoints[sortedOrder.indices()[i]];
-                        beamDirectionChangeOrder[rayI][i] =
-                            unsortedOrder[sortedOrder.indices()[i]];
+                        pointIdOffset[rayI] =
+                            pointIdOffset[rayI - 1] + beamDirectionChangePoints[rayI - 1].size();
                     }
                 }
-            }
-        }
 
-        // Write rays
-        if (runTime.outputTime() && Pstream::master())
-        {
-            if (debug)
-            {
+                // Write points
+                rayVtkFile
+                    << "DATASET POLYDATA" << nl
+                    << "POINTS " << nRayPoints << " double" << endl;
+
+                // Add ray points
                 forAll(beamDirectionChangePoints, rayI)
                 {
-                    Info << "ray " << rayI << endl;
                     forAll(beamDirectionChangePoints[rayI], i)
                     {
-                        Info << "    " << beamDirectionChangePoints[rayI][i] << endl;
+                        rayVtkFile
+                            << beamDirectionChangePoints[rayI][i].x() << " "
+                            << beamDirectionChangePoints[rayI][i].y() << " "
+                            << beamDirectionChangePoints[rayI][i].z() << endl;
                     }
                 }
-            }
 
-            // Write rays in VTK format
-            // See
-            // https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html
-
-            // Create a directory for the VTK files
-            fileName vtkDir;
-            if (Pstream::parRun())
-            {
-                vtkDir = runTime.path() / ".." / "VTKs";
-            }
-            else
-            {
-                vtkDir = runTime.path() / "VTKs";
-            }
-
-            mkDir(vtkDir);
-
-            // Create a VTK file
-            OFstream rayVtkFile(
-                vtkDir / "rays_" //+ runTime.timeName() + "_"
-                + Foam::name(runTime.timeIndex()) + ".vtk");
-
-            Info << "Writing rays to " << rayVtkFile.name() << endl;
-
-            // Write header
-            rayVtkFile
-                << "# vtk DataFile Version 2.0" << nl
-                << "Rays" << nl
-                << "ASCII" << endl;
-
-            // Count the number of points and calculate the offset for each ray
-            label nRayPoints = 0;
-            labelList pointIdOffset(beamDirectionChangePoints.size(), 0);
-            forAll(beamDirectionChangePoints, rayI)
-            {
-                nRayPoints += beamDirectionChangePoints[rayI].size();
-
-                if (rayI > 0)
+                // Count the number of lines
+                label nRayLines = 0;
+                forAll(beamDirectionChangePoints, rayI)
                 {
-                    pointIdOffset[rayI] =
-                        pointIdOffset[rayI - 1] + beamDirectionChangePoints[rayI - 1].size();
+                    // Note: we must add 1 as the VTK format requires it
+                    nRayLines += beamDirectionChangePoints[rayI].size() + 1;
                 }
-            }
 
-            // Write points
-            rayVtkFile
-                << "DATASET POLYDATA" << nl
-                << "POINTS " << nRayPoints << " double" << endl;
-
-            // Add ray points
-            forAll(beamDirectionChangePoints, rayI)
-            {
-                forAll(beamDirectionChangePoints[rayI], i)
-                {
-                    rayVtkFile
-                        << beamDirectionChangePoints[rayI][i].x() << " "
-                        << beamDirectionChangePoints[rayI][i].y() << " "
-                        << beamDirectionChangePoints[rayI][i].z() << endl;
-                }
-            }
-
-            // Count the number of lines
-            label nRayLines = 0;
-            forAll(beamDirectionChangePoints, rayI)
-            {
-                // Note: we must add 1 as the VTK format requires it
-                nRayLines += beamDirectionChangePoints[rayI].size() + 1;
-            }
-
-            // Write lines
-            rayVtkFile
-                << "LINES " << beamDirectionChangePoints.size() << " " << nRayLines
-                << endl;
-
-            forAll(beamDirectionChangePoints, rayI)
-            {
-                // Write the number of points in the line
+                // Write lines
                 rayVtkFile
-                    << beamDirectionChangePoints[rayI].size();
-
-                // Write indices of points
-                forAll(beamDirectionChangePoints[rayI], i)
-                {
-                    rayVtkFile
-                        << " " << pointIdOffset[rayI] + i;
-                }
-
-                rayVtkFile
+                    << "LINES " << beamDirectionChangePoints.size() << " " << nRayLines
                     << endl;
+
+                forAll(beamDirectionChangePoints, rayI)
+                {
+                    // Write the number of points in the line
+                    rayVtkFile
+                        << beamDirectionChangePoints[rayI].size();
+
+                    // Write indices of points
+                    forAll(beamDirectionChangePoints[rayI], i)
+                    {
+                        rayVtkFile
+                            << " " << pointIdOffset[rayI] + i;
+                    }
+
+                    rayVtkFile
+                        << endl;
+                }
             }
         }
-    }
 
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+        // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-} // End namespace Foam
+    } // End namespace Foam
 
-// ************************************************************************* //
+    // ************************************************************************* //
