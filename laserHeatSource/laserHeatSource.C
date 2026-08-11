@@ -23,6 +23,7 @@ License
 #include "findLocalCell.H"
 #include "SortableList.H"
 #include <cmath>
+#include "Polynomial.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -115,6 +116,7 @@ namespace Foam
     // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
     void laserHeatSource::updateDeposition(
+        const volScalarField &T,
         const volScalarField &alphaFiltered,
         const volVectorField &nFiltered)
     {
@@ -144,9 +146,12 @@ namespace Foam
         const vector Gauss_core(lookup("Gauss_core"));
         const vector Gauss_ring(lookup("Gauss_ring"));
         const scalar wavelength(readScalar(lookup("wavelength")));
-        const scalar e_num_density(readScalar(lookup("e_num_density")));
-        // elec_resistivity is temperature dependent - will include this in future versions
-        const scalar elec_resistivity(readScalar(lookup("elec_resistivity")));
+
+        Polynomial<8> poly_e_num_density(lookup("poly_e_num_density")); // Solid phase thermal conductivity
+        // const scalar e_num_density(readScalar(lookup("e_num_density")));
+        //  elec_resistivity is temperature dependent - will include this in future versions
+        Polynomial<8> poly_elec_resistivity(lookup("poly_elec_resistivity"));
+        // const scalar elec_resistivity(readScalar(lookup("elec_resistivity")));
 
         const dimensionedScalar pi = constant::mathematical::pi;
         const dimensionedScalar a_cond("a_cond", dimensionSet(0, 1, 0, 0, 0), HS_a);
@@ -159,14 +164,29 @@ namespace Foam
         const scalar oscFreqX(readScalar(lookup("HS_oscFreqX")));
         const scalar oscFreqZ(readScalar(lookup("HS_oscFreqZ")));
 
-        const scalar plasma_frequency = Foam::sqrt(
-            (
-                e_num_density * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
-            (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
+        // Take a references for efficiency and brevity
+        const vectorField &CI = mesh.C();
+        const scalarField &yDimI = yDim_;
+        const vectorField &nFilteredI = nFiltered;
+        const scalarField &alphaFilteredI = alphaFiltered;
+        const scalarField &TI = T;
+
+        scalar plasma_frequency(1e29);
+        scalar damping_frequency(1e-6);
+
+        forAll(CI, celli)
+        {
+            plasma_frequency = Foam::sqrt(
+                (
+                    poly_e_num_density.value(TI[celli]) * constant::electromagnetic::e.value() * constant::electromagnetic::e.value()) /
+                (constant::atomic::me.value() * constant::electromagnetic::epsilon0.value()));
+
+            damping_frequency =
+                plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * poly_elec_resistivity.value(TI[celli]);
+        }
         const scalar angular_frequency =
             2.0 * pi.value() * constant::universal::c.value() / wavelength;
-        const scalar damping_frequency =
-            plasma_frequency * plasma_frequency * constant::electromagnetic::epsilon0.value() * elec_resistivity;
+
         const scalar e_r =
             1.0 - (sqr(plasma_frequency) / (sqr(angular_frequency) + sqr(damping_frequency)));
         const scalar e_i =
@@ -210,12 +230,14 @@ namespace Foam
         double time_in_cycle_laer_on;
         double time_in_cycle_laser_off;
 
-        if (  time.value() - (n_cycles * Period_T)<=Period_QendT){
+        if (time.value() - (n_cycles * Period_T) <= Period_QendT)
+        {
             time_in_cycle_laer_on = time.value() - (n_cycles * Period_T);
             time_in_cycle_laser_off = 0.0;
-
+            
         }
-        else{
+        else
+        {
             time_in_cycle_laer_on = Period_QendT;
             time_in_cycle_laser_off = time.value() - (n_cycles * Period_T) - Period_QendT;
         }
@@ -271,12 +293,6 @@ namespace Foam
 
         dimensionedScalar bg_effective = b_g.value() + oscAmpX * sin(2 * pi * oscFreqX * time.value());
         dimensionedScalar lg_effective = lg.value() + oscAmpZ * cos(2 * pi * oscFreqZ * time.value());
-
-        // Take a references for efficiency and brevity
-        const vectorField &CI = mesh.C();
-        const scalarField &yDimI = yDim_;
-        const vectorField &nFilteredI = nFiltered;
-        const scalarField &alphaFilteredI = alphaFiltered;
 
         forAll(CI, celli)
         {
