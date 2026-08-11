@@ -144,7 +144,6 @@ public:
         //  interface normal field are required to define the interface
         void updateDeposition
         (
-            const volScalarField& T,
             const volScalarField& alphaFiltered,
             const volVectorField& nFiltered
         );
