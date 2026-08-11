@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
             #include "UpdateProps.H"
 
             // Update the laser deposition field
-            laser.updateDeposition(alpha_filtered, n_filtered);
+            laser.updateDeposition(T, alpha_filtered, n_filtered);
 
             turbulence.correctPhasePhi();
 
