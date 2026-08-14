@@ -158,6 +158,7 @@ namespace Foam
         Polynomial<8> poly_elec_resistivity_s_l(lookup("poly_elec_resistivity_s_l")); // Liquid-solid phase electrical resistivity
         Polynomial<8> poly_elec_resistivity_l(lookup("poly_elec_resistivity_l"));     // Liquid phase electrical resistivity
         // const scalar elec_resistivity(readScalar(lookup("elec_resistivity")));
+        const scalar ini_absorptivity(readScalar(lookup("ini_absorptivity"))); // total local absorptivity = Initial absorptivity  + calculated absorptivity
 
         const dimensionedScalar pi = constant::mathematical::pi;
         const dimensionedScalar a_cond("a_cond", dimensionSet(0, 1, 0, 0, 0), HS_a);
@@ -181,6 +182,8 @@ namespace Foam
 
         scalar plasma_frequency(1e29);
         scalar damping_frequency(1e-6);
+        scalar cal_absorptivity(0); // total local absorptivity = Initial absorptivity  + calculated absorptivity
+        scalar tot_absorptivity(0); // total local absorptivity = Initial absorptivity  + calculated absorptivity
 
         forAll(CI, celli)
         {
@@ -539,7 +542,9 @@ namespace Foam
                             scalar beta_laser = Foam::sqrt((Foam::sqrt(sqr(sqr(ref_index) - sqr(ext_coefficient) - sqr(Foam::sin(theta_in))) + (4.0 * sqr(ref_index) * sqr(ext_coefficient))) - sqr(ref_index) + sqr(ext_coefficient) + sqr(Foam::sin(theta_in))) / (2.0));
                             scalar R_s = ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))));
                             scalar R_p = R_s * ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))));
-                            scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0); // 1.0;//
+                            scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0) + ini_absorptivity; // 1.0;//
+                            tot_absorptivity = absorptivity;
+                            cal_absorptivity = absorptivity - ini_absorptivity;
                             // scalar absorptivity = 1.0;//1.0;//
 
                             // }
@@ -585,7 +590,9 @@ namespace Foam
                                 scalar R_s = ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::cos(theta_in)) + sqr(Foam::cos(theta_in))));
                                 scalar R_p = R_s * ((sqr(alpha_laser) + sqr(beta_laser) - (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))) / (sqr(alpha_laser) + sqr(beta_laser) + (2.0 * alpha_laser * Foam::sin(theta_in) * Foam::tan(theta_in)) + (sqr(Foam::sin(theta_in)) * sqr(Foam::tan(theta_in)))));
 
-                                scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0);
+                                scalar absorptivity = 1.0 - ((R_s + R_p) / 2.0) + ini_absorptivity;
+                                tot_absorptivity = absorptivity;
+                                cal_absorptivity = absorptivity - ini_absorptivity;
                                 // scalar absorptivity = 1.0;
 
                                 V2 = -V2; // if the ray slips through the interface (unlikely) send it back the way it came because it must have been at 0 degrees anyway
@@ -687,6 +694,12 @@ namespace Foam
             // const scalar TotalQ = gSum(deposition_*mesh.V().value());
             const scalar TotalQ = fvc::domainIntegrate(deposition_).value();
             Info << "Total Q deposited this timestep:: " << TotalQ << endl;
+            scalar Global_absorptivity = TotalQ/HS_Q*100;
+            Info << "Global absorptivity:: " << Global_absorptivity << " % " << endl;
+
+            Info << "Toal local absorptivity:: " << tot_absorptivity*100 << " % " << endl;
+            Info << "Initial local absorptivity:: " << ini_absorptivity*100 << " % " << endl;
+            Info << "Calculated local absorptivity:: " << cal_absorptivity*100 << " % " << endl;
 
             // Combine rays across procs
             if (runTime.outputTime() && Pstream::parRun())
